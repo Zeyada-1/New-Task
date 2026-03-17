@@ -1,83 +1,139 @@
 @import "tailwindcss";
 
 @layer base {
+  html { scrollbar-gutter: stable; }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background-color: #0f0f1a;
-    color: #e2e8f0;
+    background-color: #f7f6f3;
+    color: #171717;
     font-family: 'Inter', system-ui, sans-serif;
     min-height: 100vh;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  html.dark body {
+    background-color: #1c1917;
+    color: #f5f5f4;
   }
 
   ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #1a1a2e; }
-  ::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: #f0ede8; }
+  html.dark ::-webkit-scrollbar-track { background: #292524; }
+  ::-webkit-scrollbar-thumb { background: #d4d0c8; border-radius: 3px; }
+  html.dark ::-webkit-scrollbar-thumb { background: #57534e; }
+
+  /* Global dark mode overrides for common Tailwind classes */
+  html.dark .border-stone-100 { border-color: #3a3532 !important; }
+  html.dark .border-b.border-stone-100, html.dark .border-r.border-stone-100 { border-color: #3a3532 !important; }
+  html.dark .bg-stone-50   { background-color: #1c1917 !important; }
+  html.dark .bg-stone-100  { background-color: #44403c !important; }
+  html.dark .text-stone-600 { color: #d6d3d1 !important; }
+  html.dark .hover\:bg-stone-50:hover { background-color: #292524 !important; }
+  html.dark .hover\:bg-stone-100:hover { background-color: #3a3532 !important; }
+  html.dark .bg-orange-50  { background-color: rgba(249,115,22,0.1) !important; }
+  html.dark .hover\:bg-orange-50:hover { background-color: #292524 !important; }
+  html.dark .hover\:bg-stone-50\/50:hover { background-color: rgba(41,37,36,0.5) !important; }
+  html.dark .ring-orange-300\/50 { --tw-ring-color: rgba(249,115,22,0.25); }
+  html.dark .bg-\[\#f7f6f3\] { background-color: #1c1917 !important; }
+  html.dark .border-stone-200 { border-color: #44403c !important; }
+  html.dark .text-neutral-900, html.dark .text-neutral-800 { color: #f5f5f4 !important; }
+  html.dark .text-neutral-700 { color: #e7e5e0 !important; }
+  html.dark .text-stone-700  { color: #e7e5e0 !important; }
+  html.dark .text-stone-600  { color: #d6d3d1 !important; }
+  html.dark .text-stone-500  { color: #a8a29e !important; }
+  html.dark .text-stone-400  { color: #78716c !important; }
+  html.dark .hover\:bg-stone-100:hover { background-color: #292524 !important; }
+  html.dark .hover\:text-neutral-900:hover { color: #f5f5f4 !important; }
 }
 
-/* Component-level classes — utility classes like pl-9 properly override these */
 @layer components {
   .input-field {
-    background: rgba(15, 15, 26, 0.8);
-    border: 1px solid rgba(124, 58, 237, 0.3);
-    border-radius: 0.75rem;
+    background: #ffffff;
+    border: 1px solid #e5e3de;
+    border-radius: 0.625rem;
     padding: 0.65rem 1rem;
-    color: #e2e8f0;
+    color: #171717;
     width: 100%;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.3s, color 0.3s;
+    font-size: 0.9rem;
   }
-  .input-field:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
-  .input-field::placeholder { color: #64748b; }
+  .input-field:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+  .input-field::placeholder { color: #a3a3a3; }
+  html.dark .input-field { background: #292524; border-color: #44403c; color: #f5f5f4; }
+  html.dark .input-field::placeholder { color: #78716c; }
+  html.dark .input-field:focus { border-color: #f97316; }
 }
 
 @layer utilities {
+  /* .glass now renders as a clean white card */
   .glass {
-    background: rgba(22, 33, 62, 0.85);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    border-radius: 1rem;
+    background: #ffffff;
+    border: 1px solid #e5e3de;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    transition: background 0.3s, border-color 0.3s;
   }
+  html.dark .glass { background: #292524; border-color: #44403c; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
 
-  .glow { box-shadow: 0 0 24px rgba(124, 58, 237, 0.35); }
-  .glow-gold { box-shadow: 0 0 24px rgba(245, 158, 11, 0.45); }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e5e3de;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  html.dark .card { background: #292524; border-color: #44403c; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+
+  .glow { box-shadow: 0 0 0 2px rgba(249,115,22,0.15), 0 2px 8px rgba(0,0,0,0.06); }
 
   .xp-bar {
-    background: linear-gradient(90deg, #7c3aed, #a78bfa);
+    background: linear-gradient(90deg, #f97316, #fb923c);
     border-radius: 9999px;
     transition: width 0.6s ease;
   }
 
-  .priority-low  { color: #10b981; }
-  .priority-med  { color: #f59e0b; }
+  .priority-low  { color: #22c55e; }
+  .priority-med  { color: #f97316; }
   .priority-high { color: #ef4444; }
 
   .btn-primary {
-    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    background: #f97316;
     color: white;
     border: none;
-    border-radius: 0.75rem;
+    border-radius: 0.625rem;
     padding: 0.6rem 1.4rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
+    font-size: 0.9rem;
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+  .btn-primary:hover { background: #ea580c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(249,115,22,0.35); }
+  .btn-primary:disabled { opacity: 0.55; transform: none; cursor: not-allowed; box-shadow: none; }
 
   .btn-ghost {
     background: transparent;
-    color: #a78bfa;
-    border: 1px solid rgba(124,58,237,0.4);
-    border-radius: 0.75rem;
+    color: #525252;
+    border: 1px solid #e5e3de;
+    border-radius: 0.625rem;
     padding: 0.6rem 1.4rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
+    font-size: 0.9rem;
   }
-  .btn-ghost:hover { background: rgba(124,58,237,0.15); }
+  .btn-ghost:hover { background: #f7f6f3; border-color: #d4d0c8; color: #171717; }
+  html.dark .btn-ghost { border-color: #44403c; color: #d6d3d1; }
+  html.dark .btn-ghost:hover { background: #292524; border-color: #57534e; color: #f5f5f4; }
 
   /* Hide scrollbar for drum-roll pickers */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+}
+
+@keyframes undo-shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
 }
 

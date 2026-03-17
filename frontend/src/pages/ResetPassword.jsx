@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff, Sword, CheckCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../lib/api';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -23,19 +24,10 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setDone(true);
-      } else {
-        toast.error(data.error || data.errors?.[0]?.msg || 'Reset failed');
-      }
-    } catch {
-      toast.error('Could not connect to server');
+      await api.post('/auth/reset-password', { token, password });
+      setDone(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.response?.data?.errors?.[0]?.msg || 'Reset failed');
     } finally {
       setLoading(false);
     }
@@ -43,13 +35,10 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center px-4"
-        style={{ background: 'radial-gradient(ellipse at top, #1a1a2e 0%, #0f0f1a 70%)' }}
-      >
+      <div className="min-h-screen flex items-center justify-center px-4 bg-[#f7f6f3]">
         <div className="text-center">
-          <p className="text-red-400 mb-4">Invalid reset link.</p>
-          <Link to="/forgot-password" className="text-violet-400 hover:text-violet-300">
+          <p className="text-red-500 mb-4">Invalid reset link.</p>
+          <Link to="/forgot-password" className="text-orange-500 hover:text-orange-600">
             Request a new one
           </Link>
         </div>
@@ -58,32 +47,24 @@ export default function ResetPassword() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: 'radial-gradient(ellipse at top, #1a1a2e 0%, #0f0f1a 70%)' }}
-    >
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[#f7f6f3]">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="glass p-8 w-full max-w-md glow"
+        className="card p-8 w-full max-w-md"
       >
         <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-          >
-            <Sword size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Reset Password</h1>
-          <p className="text-slate-400 mt-1 text-sm">Enter your new password below</p>
+          <img src="/favicon.svg" alt="Orbit" className="w-12 h-12 mb-3" />
+          <h1 className="text-2xl font-bold text-neutral-900">Reset Password</h1>
+          <p className="text-stone-500 mt-1 text-sm">Enter your new password below</p>
         </div>
 
         {done ? (
           <div className="flex flex-col items-center gap-4 text-center">
-            <CheckCircle size={48} className="text-green-400" />
-            <p className="text-green-300 font-semibold text-lg">Password reset!</p>
-            <p className="text-slate-400 text-sm">Your password has been updated successfully.</p>
+            <CheckCircle size={48} className="text-emerald-500" />
+            <p className="text-emerald-600 font-semibold text-lg">Password reset!</p>
+            <p className="text-stone-500 text-sm">Your password has been updated successfully.</p>
             <button onClick={() => navigate('/login')} className="btn-primary px-6 py-2.5 mt-2">
               Sign In
             </button>
@@ -91,7 +72,7 @@ export default function ResetPassword() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
-              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 type={showPass ? 'text' : 'password'}
                 placeholder="New password (min 8 chars, 1 number)"
@@ -103,13 +84,13 @@ export default function ResetPassword() {
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-neutral-900"
               >
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             <div className="relative">
-              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 type="password"
                 placeholder="Confirm new password"

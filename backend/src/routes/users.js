@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { calculateLevel } from '../lib/gamification.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -21,8 +20,6 @@ router.get('/search', async (req, res) => {
         id: true,
         username: true,
         avatar: true,
-        level: true,
-        streak: true,
         isPublic: true,
       },
       take: 20,
@@ -42,38 +39,19 @@ router.get('/:username', async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { username: req.params.username },
       include: {
-        achievements: {
-          include: { achievement: true },
-          orderBy: { unlockedAt: 'desc' },
-        },
-        _count: {
-          select: { tasks: { where: { completed: true } } },
-        },
+        _count: { select: { tasks: { where: { completed: true } } } },
       },
     });
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const isOwner = user.id === req.userId;
-    const levelInfo = calculateLevel(user.xp);
-
-    // Always return basic info; achievements only if public or own profile
     res.json({
       id: user.id,
       username: user.username,
       avatar: user.avatar,
-      xp: user.xp,
-      level: levelInfo.level,
-      currentLevelXp: levelInfo.currentLevelXp,
-      xpForNext: levelInfo.xpForNext,
-      streak: user.streak,
-      longestStreak: user.longestStreak,
       isPublic: user.isPublic,
       joinedAt: user.createdAt,
       completedCount: user._count.tasks,
-      achievements: (user.isPublic || isOwner)
-        ? user.achievements.map((ua) => ({ ...ua.achievement, unlockedAt: ua.unlockedAt }))
-        : [],
     });
   } catch (err) {
     console.error(err);
@@ -108,7 +86,7 @@ router.get('/:username/schedule', async (req, res) => {
       }),
       prisma.task.findMany({
         where: { userId: user.id, completed: true },
-        select: { id: true, title: true, category: true, completedAt: true, xpReward: true },
+        select: { id: true, title: true, category: true, completedAt: true },
         orderBy: { completedAt: 'desc' },
         take: 10,
       }),

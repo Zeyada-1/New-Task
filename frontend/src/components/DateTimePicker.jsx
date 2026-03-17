@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -23,7 +24,7 @@ function isSameDay(a, b) {
 
 // ── Drum-roll column (iOS-style) ──────────────────────────────────────────────
 
-function DrumColumn({ items, value, onChange, width = 'flex-1' }) {
+function DrumColumn({ items, value, onChange, width = 'flex-1', dark = false }) {
   const scrollRef   = useRef(null);
   const debounce    = useRef(null);
   const programmatic = useRef(false);
@@ -43,13 +44,19 @@ function DrumColumn({ items, value, onChange, width = 'flex-1' }) {
     }
   };
 
-  // Scroll to initial position without animation on mount (rAF ensures DOM is painted)
+  // Scroll to initial position without animation on mount.
+  // We attempt immediately (rAF) AND after 280ms — the parent AnimatePresence
+  // animates height 0→auto over 200ms, during which scrollTop can't be set
+  // on a zero-height container. The delayed attempt fires after the animation.
   useEffect(() => {
     const idx = items.indexOf(value);
     if (idx < 0) return;
-    requestAnimationFrame(() => {
+    const attempt = () => {
       if (scrollRef.current) scrollRef.current.scrollTop = idx * ITEM_H;
-    });
+    };
+    requestAnimationFrame(attempt);
+    const t = setTimeout(attempt, 280);
+    return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll when value changes externally
@@ -84,20 +91,20 @@ function DrumColumn({ items, value, onChange, width = 'flex-1' }) {
           top: ITEM_H * pad,
           height: ITEM_H,
           zIndex: 2,
-          background: 'rgba(124,58,237,0.22)',
-          borderTop: '1px solid rgba(124,58,237,0.55)',
-          borderBottom: '1px solid rgba(124,58,237,0.55)',
+          background: 'rgba(249,115,22,0.12)',
+          borderTop: '1px solid rgba(249,115,22,0.4)',
+          borderBottom: '1px solid rgba(249,115,22,0.4)',
         }}
       />
       {/* Top fade-out */}
       <div
         className="absolute inset-x-0 top-0 pointer-events-none"
-        style={{ height: ITEM_H * pad, zIndex: 3, background: 'linear-gradient(to bottom, rgba(8,8,18,0.97) 20%, transparent)' }}
+        style={{ height: ITEM_H * pad, zIndex: 3, background: `linear-gradient(to bottom, ${dark ? 'rgba(28,25,23,0.97)' : 'rgba(247,246,243,0.97)'} 20%, transparent)` }}
       />
       {/* Bottom fade-out */}
       <div
         className="absolute inset-x-0 bottom-0 pointer-events-none"
-        style={{ height: ITEM_H * pad, zIndex: 3, background: 'linear-gradient(to top, rgba(8,8,18,0.97) 20%, transparent)' }}
+        style={{ height: ITEM_H * pad, zIndex: 3, background: `linear-gradient(to top, ${dark ? 'rgba(28,25,23,0.97)' : 'rgba(247,246,243,0.97)'} 20%, transparent)` }}
       />
 
       <div
@@ -115,8 +122,8 @@ function DrumColumn({ items, value, onChange, width = 'flex-1' }) {
             style={{ height: ITEM_H, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
             className={`flex items-center justify-center font-semibold cursor-pointer transition-all duration-150 ${
               item === value
-                ? 'text-violet-200 text-xl'
-                : 'text-slate-600 text-base hover:text-slate-400'
+                ? 'text-orange-500 text-xl'
+                : `text-stone-400 text-base ${dark ? 'hover:text-stone-100' : 'hover:text-neutral-900'}`
             }`}
             onClick={() => {
               const idx = items.indexOf(item);
@@ -137,7 +144,7 @@ function DrumColumn({ items, value, onChange, width = 'flex-1' }) {
 
 // ── Mini calendar ─────────────────────────────────────────────────────────────
 
-function MiniCalendar({ selected, onChange }) {
+function MiniCalendar({ selected, onChange, dark = false }) {
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
 
@@ -176,19 +183,19 @@ function MiniCalendar({ selected, onChange }) {
           disabled={!canGoPrev}
           className={`p-1.5 rounded-lg transition-colors ${
             canGoPrev
-              ? 'text-slate-300 hover:text-white hover:bg-white/10'
-              : 'text-slate-700 cursor-not-allowed'
+              ? (dark ? 'text-stone-400 hover:text-stone-100 hover:bg-stone-700' : 'text-stone-500 hover:text-neutral-900 hover:bg-stone-100')
+              : (dark ? 'text-stone-700 cursor-not-allowed' : 'text-stone-200 cursor-not-allowed')
           }`}
         >
           <ChevronLeft size={14} />
         </button>
-        <span className="text-sm font-bold text-white">
+        <span className={`text-sm font-bold ${dark ? 'text-stone-100' : 'text-neutral-900'}`}>
           {MONTH_NAMES[month]} {year}
         </span>
         <button
           type="button"
           onClick={() => setView(new Date(year, month + 1, 1))}
-          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          className={`p-1.5 rounded-lg ${dark ? 'text-stone-400 hover:text-stone-100 hover:bg-stone-700' : 'text-stone-500 hover:text-neutral-900 hover:bg-stone-100'} transition-colors`}
         >
           <ChevronRight size={14} />
         </button>
@@ -197,7 +204,7 @@ function MiniCalendar({ selected, onChange }) {
       {/* Weekday labels */}
       <div className="grid grid-cols-7 mb-1">
         {DAY_LABELS.map((d, i) => (
-          <div key={i} className="text-center text-xs text-slate-600 font-semibold py-0.5">
+          <div key={i} className="text-center text-xs text-stone-400 font-semibold py-0.5">
             {d}
           </div>
         ))}
@@ -219,10 +226,10 @@ function MiniCalendar({ selected, onChange }) {
               onClick={() => !isPast && onChange(d)}
               className={[
                 'h-8 w-8 mx-auto rounded-full text-xs font-semibold flex items-center justify-center transition-all',
-                !inMonth || isPast ? 'text-slate-700 cursor-default' : '',
-                isSel ? 'bg-violet-500 text-white shadow-lg' : '',
-                isToday && !isSel ? 'ring-1 ring-violet-400 text-violet-300' : '',
-                inMonth && !isPast && !isSel ? 'text-slate-300 hover:bg-violet-600/30 hover:text-white cursor-pointer' : '',
+                !inMonth || isPast ? (dark ? 'text-stone-600 cursor-default' : 'text-stone-200 cursor-default') : '',
+                isSel ? 'bg-orange-500 text-white shadow-sm' : '',
+                isToday && !isSel ? 'ring-1 ring-orange-400 text-orange-500' : '',
+                inMonth && !isPast && !isSel ? (dark ? 'text-stone-300 hover:bg-orange-900/30 hover:text-orange-400 cursor-pointer' : 'text-stone-600 hover:bg-orange-50 hover:text-orange-600 cursor-pointer') : '',
               ].join(' ')}
             >
               {d.getDate()}
@@ -237,6 +244,7 @@ function MiniCalendar({ selected, onChange }) {
 // ── Main DateTimePicker ───────────────────────────────────────────────────────
 
 export default function DateTimePicker({ value, onChange, placeholder = 'Set due date & time...' }) {
+  const { dark } = useTheme();
   const [open, setOpen] = useState(false);
 
   // Local state for each part
@@ -308,14 +316,14 @@ export default function DateTimePicker({ value, onChange, placeholder = 'Set due
         onClick={() => setOpen((o) => !o)}
         className="input-field flex items-center gap-2 text-left cursor-pointer w-full"
       >
-        <CalendarDays size={14} className="text-slate-400 flex-shrink-0" />
-        <span className={`flex-1 text-sm ${selDate ? 'text-white' : 'text-slate-500'}`}>
+        <CalendarDays size={14} className="text-stone-400 flex-shrink-0" />
+        <span className={`flex-1 text-sm ${selDate ? (dark ? 'text-stone-100' : 'text-neutral-900') : 'text-stone-400'}`}>
           {displayLabel() || placeholder}
         </span>
         {selDate && (
           <span
             onClick={handleClear}
-            className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
+            className="text-stone-400 hover:text-red-400 transition-colors flex-shrink-0"
           >
             <X size={13} />
           </span>
@@ -334,32 +342,32 @@ export default function DateTimePicker({ value, onChange, placeholder = 'Set due
           >
             <div
               className="mt-2 rounded-xl p-4"
-              style={{ background: 'rgba(8,8,18,0.98)', border: '1px solid rgba(124,58,237,0.4)' }}
+              style={{ background: dark ? '#1c1917' : '#ffffff', border: `1px solid ${dark ? '#44403c' : '#e5e3de'}` }}
             >
               {/* Calendar */}
-              <MiniCalendar selected={selDate} onChange={setSelDate} />
+              <MiniCalendar selected={selDate} onChange={setSelDate} dark={dark} />
 
               {/* Divider */}
-              <div className="my-4" style={{ borderTop: '1px solid rgba(124,58,237,0.2)' }} />
+              <div className="my-4" style={{ borderTop: `1px solid ${dark ? '#44403c' : '#e5e3de'}` }} />
 
               {/* Time header */}
               <div className="flex items-center gap-1.5 mb-1">
-                <Clock size={11} className="text-slate-500" />
-                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Time</span>
+                <Clock size={11} className="text-stone-400" />
+                <span className="text-xs text-stone-400 font-semibold uppercase tracking-wider">Time</span>
               </div>
 
               {/* Drum-roll columns */}
               <div className="flex items-stretch rounded-xl overflow-hidden"
-                style={{ background: 'rgba(15,15,26,0.6)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                <DrumColumn items={HOURS} value={hour} onChange={setHour} />
-                <div className="flex items-center justify-center text-slate-500 text-xl font-bold px-1 self-center"
+                style={{ background: dark ? '#1c1917' : '#f7f6f3', border: `1px solid ${dark ? '#44403c' : '#e5e3de'}` }}>
+                <DrumColumn items={HOURS} value={hour} onChange={setHour} dark={dark} />
+                <div className="flex items-center justify-center text-stone-400 text-xl font-bold px-1 self-center"
                   style={{ height: ITEM_H * VISIBLE_ITEMS }}>
                   :
                 </div>
-                <DrumColumn items={MINUTES} value={minute} onChange={setMinute} />
+                <DrumColumn items={MINUTES} value={minute} onChange={setMinute} dark={dark} />
                 {/* Separator */}
-                <div style={{ width: 1, background: 'rgba(124,58,237,0.2)', margin: '12px 0' }} />
-                <DrumColumn items={AMPM} value={ampm} onChange={setAmpm} width="w-16" />
+                <div style={{ width: 1, background: dark ? '#44403c' : '#e5e3de', margin: '12px 0' }} />
+                <DrumColumn items={AMPM} value={ampm} onChange={setAmpm} width="w-16" dark={dark} />
               </div>
 
               {/* Past-time warning */}

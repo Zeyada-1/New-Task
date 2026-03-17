@@ -4,22 +4,10 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { body, validationResult } from 'express-validator';
 import prisma from '../lib/prisma.js';
-import { ACHIEVEMENTS } from '../lib/gamification.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
-
-// Seed achievements on first use (idempotent)
-async function seedAchievements() {
-  for (const ach of ACHIEVEMENTS) {
-    await prisma.achievement.upsert({
-      where: { key: ach.key },
-      update: {},
-      create: ach,
-    });
-  }
-}
 
 const passwordRules = [
   body('password')
@@ -53,12 +41,11 @@ router.post(
 
       const hashed = await bcrypt.hash(password, 12);
       const emailVerifyToken = crypto.randomBytes(32).toString('hex');
+      const emailVerifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       const user = await prisma.user.create({
-        data: { email, username, password: hashed, emailVerifyToken },
+        data: { email, username, password: hashed, emailVerifyToken, emailVerifyTokenExpiry },
       });
-
-      await seedAchievements();
 
       // Send verification email — don't fail registration if email fails
       sendVerificationEmail(email, emailVerifyToken).catch((err) => {
@@ -73,9 +60,6 @@ router.post(
           id: user.id,
           email: user.email,
           username: user.username,
-          xp: 0,
-          level: 1,
-          streak: 0,
           avatar: user.avatar,
           emailVerified: false,
         },
@@ -113,10 +97,6 @@ router.post(
           id: user.id,
           email: user.email,
           username: user.username,
-          xp: user.xp,
-          level: user.level,
-          streak: user.streak,
-          longestStreak: user.longestStreak,
           avatar: user.avatar,
           emailVerified: user.emailVerified,
         },
@@ -134,12 +114,17 @@ router.get('/verify-email', async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Token required' });
 
   try {
-    const user = await prisma.user.findFirst({ where: { emailVerifyToken: token } });
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerifyToken: token,
+        emailVerifyTokenExpiry: { gt: new Date() },
+      },
+    });
     if (!user) return res.status(400).json({ error: 'Invalid or expired verification link' });
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { emailVerified: true, emailVerifyToken: null },
+      data: { emailVerified: true, emailVerifyToken: null, emailVerifyTokenExpiry: null },
     });
 
     res.json({ message: 'Email verified successfully!' });
@@ -157,7 +142,8 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
     if (user.emailVerified) return res.status(400).json({ error: 'Email already verified' });
 
     const emailVerifyToken = crypto.randomBytes(32).toString('hex');
-    await prisma.user.update({ where: { id: user.id }, data: { emailVerifyToken } });
+    const emailVerifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await prisma.user.update({ where: { id: user.id }, data: { emailVerifyToken, emailVerifyTokenExpiry } });
     await sendVerificationEmail(user.email, emailVerifyToken);
 
     res.json({ message: 'Verification email sent!' });

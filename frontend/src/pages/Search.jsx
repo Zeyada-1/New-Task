@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Users, Lock, Globe, Flame, ChevronRight } from 'lucide-react';
+import { Search, Users, Lock, Globe, ChevronRight } from 'lucide-react';
 import api from '../lib/api';
 
-const AVATAR_EMOJIS = { warrior: '⚔️', mage: '🧙', archer: '🏹', rogue: '🗡️' };
+const AVATAR_COLORS = { warrior: '#f97316', mage: '#3b82f6', archer: '#22c55e', rogue: '#8b5cf6' };
 
 export default function SearchPage() {
   const [query, setQuery]   = useState('');
@@ -33,19 +33,20 @@ export default function SearchPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #7c3aed33, #7c3aed66)', border: '1px solid #7c3aed' }}>
-          <Users size={18} className="text-violet-400" />
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center bg-orange-50 border border-orange-200"
+        >
+          <Users size={18} className="text-orange-500" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Find Adventurers</h1>
-          <p className="text-xs text-slate-500">Search for other players and view their profiles</p>
+          <h1 className="text-xl font-bold text-neutral-900">Find People</h1>
+          <p className="text-xs text-stone-500">Search for other users and view their profiles</p>
         </div>
       </div>
 
       {/* Search input */}
       <div className="relative mb-6">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
         <input
           type="text"
           value={query}
@@ -55,7 +56,7 @@ export default function SearchPage() {
           autoFocus
         />
         {loading && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs animate-pulse">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs animate-pulse">
             Searching…
           </span>
         )}
@@ -78,43 +79,34 @@ export default function SearchPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => navigate(`/users/${u.username}`)}
-                className="glass w-full flex items-center gap-3 p-3 rounded-xl hover:border-violet-500/40 transition-all text-left group"
+                className="card w-full flex items-center gap-3 p-3 rounded-xl hover:border-orange-200 transition-all text-left group"
               >
                 {/* Avatar */}
-                <div className="relative flex-shrink-0">
+                <div className="flex-shrink-0">
                   <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed22, #7c3aed55)', border: '1px solid #7c3aed55' }}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-base"
+                    style={{ background: AVATAR_COLORS[u.avatar] || '#6b7280' }}
                   >
-                    {AVATAR_EMOJIS[u.avatar] || '⚔️'}
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 bg-violet-600 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold text-white border border-[#0f0f1a]">
-                    {u.level}
+                    {u.username?.[0]?.toUpperCase() || '?'}
                   </div>
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-white">{u.username}</span>
+                    <span className="font-semibold text-neutral-900">{u.username}</span>
                     {u.isPublic
-                      ? <span className="text-[10px] px-1.5 py-0.5 rounded-full text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-0.5">
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded-full text-emerald-600 bg-emerald-50 border border-emerald-200 flex items-center gap-0.5">
                           <Globe size={9} /> Public
                         </span>
-                      : <span className="text-[10px] px-1.5 py-0.5 rounded-full text-slate-500 bg-slate-600/10 border border-slate-600/20 flex items-center gap-0.5">
+                      : <span className="text-[10px] px-1.5 py-0.5 rounded-full text-stone-400 bg-stone-100 border border-stone-200 flex items-center gap-0.5">
                           <Lock size={9} /> Private
                         </span>
                     }
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                    <span>Level {u.level}</span>
-                    <span className="flex items-center gap-0.5 text-orange-400">
-                      <Flame size={10} /> {u.streak}d streak
-                    </span>
-                  </div>
+
                 </div>
 
-                <ChevronRight size={14} className="text-slate-600 group-hover:text-slate-400 transition-colors flex-shrink-0" />
+                <ChevronRight size={14} className="text-stone-300 group-hover:text-stone-400 transition-colors flex-shrink-0" />
               </motion.button>
             ))}
           </motion.div>
@@ -127,9 +119,9 @@ export default function SearchPage() {
             animate={{ opacity: 1 }}
             className="text-center py-16"
           >
-            <Users size={36} className="mx-auto mb-3 text-slate-700" />
-            <p className="text-slate-500">
-              No adventurers found for "<span className="text-slate-300">{query}</span>"
+            <Users size={36} className="mx-auto mb-3 text-stone-300" />
+            <p className="text-stone-400">
+              No users found for "<span className="text-stone-600">{query}</span>"
             </p>
           </motion.div>
         )}
@@ -141,8 +133,8 @@ export default function SearchPage() {
             animate={{ opacity: 1 }}
             className="text-center py-16"
           >
-            <Search size={40} className="mx-auto mb-3 text-slate-800" />
-            <p className="text-slate-600 text-sm">Type at least 2 characters to search</p>
+            <Search size={40} className="mx-auto mb-3 text-stone-200" />
+            <p className="text-stone-400 text-sm">Type at least 2 characters to search</p>
           </motion.div>
         )}
       </AnimatePresence>

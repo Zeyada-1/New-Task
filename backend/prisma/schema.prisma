@@ -13,23 +13,17 @@ model User {
   email         String          @unique
   username      String          @unique
   password      String
-  xp            Int             @default(0)
-  level         Int             @default(1)
-  streak        Int             @default(0)
-  longestStreak Int             @default(0)
-  lastActiveDate DateTime?
   avatar        String          @default("warrior")
   isPublic      Boolean         @default(false)
   emailVerified Boolean         @default(false)
-  emailVerifyToken  String?
-  resetToken        String?
-  resetTokenExpiry  DateTime?
+  emailVerifyToken        String?
+  emailVerifyTokenExpiry  DateTime?
+  resetToken              String?
+  resetTokenExpiry        DateTime?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   tasks         Task[]
-  achievements  UserAchievement[]
-  activityLogs  ActivityLog[]
 }
 
 model Task {
@@ -38,50 +32,19 @@ model Task {
   description String?
   priority    Priority  @default(MEDIUM)
   category    String    @default("General")
+  color       String?
   dueDate     DateTime?
   completed   Boolean   @default(false)
   completedAt DateTime?
-  xpReward    Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  parentId    String?
+  parent      Task?     @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]    @relation("Subtasks")
+
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Achievement {
-  id          String            @id @default(cuid())
-  key         String            @unique
-  name        String
-  description String
-  icon        String
-  xpReward    Int               @default(0)
-
-  users       UserAchievement[]
-}
-
-model UserAchievement {
-  id            String      @id @default(cuid())
-  unlockedAt    DateTime    @default(now())
-
-  userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  achievementId String
-  achievement   Achievement @relation(fields: [achievementId], references: [id])
-
-  @@unique([userId, achievementId])
-}
-
-model ActivityLog {
-  id        String   @id @default(cuid())
-  action    String
-  xpGained  Int      @default(0)
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Priority {

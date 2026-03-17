@@ -8,7 +8,7 @@ router.use(authMiddleware);
 // GET /api/analytics/overview
 router.get('/overview', async (req, res) => {
   try {
-    const tasks = await prisma.task.findMany({ where: { userId: req.userId } });
+    const tasks = await prisma.task.findMany({ where: { userId: req.userId, parentId: null } });
     const total = tasks.length;
     const completed = tasks.filter((t) => t.completed).length;
     const pending = total - completed;
@@ -35,41 +35,6 @@ router.get('/overview', async (req, res) => {
   }
 });
 
-// GET /api/analytics/xp-history — XP earned per day for the last 30 days
-router.get('/xp-history', async (req, res) => {
-  try {
-    const daysBack = 30;
-    const since = new Date();
-    since.setDate(since.getDate() - daysBack);
-
-    const logs = await prisma.activityLog.findMany({
-      where: { userId: req.userId, createdAt: { gte: since } },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    // Group by date
-    const map = {};
-    logs.forEach((log) => {
-      const date = log.createdAt.toISOString().split('T')[0];
-      map[date] = (map[date] || 0) + log.xpGained;
-    });
-
-    // Fill in all days
-    const result = [];
-    for (let i = daysBack; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split('T')[0];
-      result.push({ date: key, xp: map[key] || 0 });
-    }
-
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 // GET /api/analytics/tasks-history — tasks completed per day for the last 30 days
 router.get('/tasks-history', async (req, res) => {
   try {
@@ -78,7 +43,7 @@ router.get('/tasks-history', async (req, res) => {
     since.setDate(since.getDate() - daysBack);
 
     const tasks = await prisma.task.findMany({
-      where: { userId: req.userId, completed: true, completedAt: { gte: since } },
+      where: { userId: req.userId, completed: true, completedAt: { gte: since }, parentId: null },
     });
 
     const map = {};

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle, Clock, Tag,
+  ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle, Clock, Tag, X,
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 // ── Shared task pill ──────────────────────────────────────────────────────────
 
 function TaskPill({ task, onComplete, showTime = true }) {
-  const color = PRIO[task.priority] || PRIO.MEDIUM;
+  const color = task.color || PRIO[task.priority] || PRIO.MEDIUM;
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-all group"
@@ -102,14 +103,14 @@ function TaskPill({ task, onComplete, showTime = true }) {
         title={task.completed ? 'Completed' : 'Mark complete'}
       >
         {task.completed
-          ? <CheckCircle2 size={12} className="text-emerald-400" />
-          : <Circle size={12} className="text-slate-500 group-hover:text-violet-400 transition-colors" />}
+          ? <CheckCircle2 size={12} className="text-emerald-500" />
+          : <Circle size={12} className="text-stone-400 group-hover:text-orange-500 transition-colors" />}
       </button>
-      <span className={`flex-1 truncate font-medium ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+      <span className={`flex-1 truncate font-medium ${task.completed ? 'line-through text-stone-400' : 'text-neutral-900'}`}>
         {task.title}
       </span>
       {showTime && (
-        <span className="text-slate-500 flex-shrink-0 flex items-center gap-0.5">
+        <span className="text-stone-400 flex-shrink-0 flex items-center gap-0.5">
           <Clock size={9} />
           {fmtTime(task.dueDate)}
         </span>
@@ -136,15 +137,15 @@ function AgendaView({ tasks, tasksByDate, currentDate, onComplete }) {
   return (
     <div className="space-y-3">
       {noDateTasks.length > 0 && (
-        <div className="glass p-4">
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wider">
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-stone-500 mb-3 font-semibold uppercase tracking-wider">
             <Tag size={12} />
             No Due Date
           </div>
           <div className="space-y-1">
             {noDateTasks.map((t) => (
-              <div key={t.id} className="flex items-center gap-2 text-sm text-slate-400 py-1">
-                <Circle size={12} className="text-slate-600 flex-shrink-0" />
+              <div key={t.id} className="flex items-center gap-2 text-sm text-stone-500 py-1">
+                <Circle size={12} className="text-stone-300 flex-shrink-0" />
                 <span className="truncate">{t.title}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded ml-auto flex-shrink-0"
                   style={{ background: `${PRIO[t.priority]}18`, color: PRIO[t.priority] }}>
@@ -157,8 +158,8 @@ function AgendaView({ tasks, tasksByDate, currentDate, onComplete }) {
       )}
 
       {daysWithTasks.length === 0 && noDateTasks.length === 0 && (
-        <div className="glass p-12 text-center text-slate-500">
-          No quests scheduled in the next 30 days.
+        <div className="card p-12 text-center text-stone-400">
+          No tasks scheduled in the next 30 days.
         </div>
       )}
 
@@ -170,21 +171,21 @@ function AgendaView({ tasks, tasksByDate, currentDate, onComplete }) {
             key={k}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass p-4"
+            className="card p-4"
           >
-            <div className={`flex items-center gap-3 mb-3 ${isToday(day) ? 'text-violet-300' : 'text-slate-300'}`}>
+            <div className={`flex items-center gap-3 mb-3 ${isToday(day) ? 'text-orange-600' : 'text-neutral-900'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                ${isToday(day) ? 'bg-violet-500 text-white' : 'bg-white/5'}`}>
+                ${isToday(day) ? 'bg-orange-500 text-white' : 'bg-stone-100 text-stone-700'}`}>
                 {day.getDate()}
               </div>
               <div>
                 <div className="font-semibold text-sm">{fmtShortDate(day)}</div>
                 {isToday(day) && (
-                  <div className="text-xs text-violet-400">Today</div>
+                  <div className="text-xs text-orange-500">Today</div>
                 )}
               </div>
-              <div className="ml-auto text-xs text-slate-600">
-                {dayTasks.length} quest{dayTasks.length !== 1 ? 's' : ''}
+              <div className="ml-auto text-xs text-stone-400">
+                {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
               </div>
             </div>
             <div className="space-y-1.5">
@@ -205,23 +206,23 @@ function WeekView({ tasksByDate, currentDate, onComplete }) {
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
   return (
-    <div className="glass overflow-x-auto">
+    <div className="card overflow-x-auto">
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-white/5 min-w-[560px]">
+      <div className="grid grid-cols-7 border-b border-stone-100 min-w-[560px]">
         {weekDays.map((d, i) => (
           <div
             key={i}
-            className={`p-3 text-center border-r border-white/5 last:border-r-0
-              ${isToday(d) ? 'bg-violet-600/10' : ''}`}
+            className={`p-3 text-center border-r border-stone-100 last:border-r-0
+              ${isToday(d) ? 'bg-orange-50' : ''}`}
           >
-            <div className="text-xs text-slate-500 font-semibold uppercase">{DAY_NAMES[i]}</div>
+            <div className="text-xs text-stone-400 font-semibold uppercase">{DAY_NAMES[i]}</div>
             <div
               className={`text-xl font-bold mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full
-                ${isToday(d) ? 'bg-violet-500 text-white' : 'text-white'}`}
+                ${isToday(d) ? 'bg-orange-500 text-white' : 'text-neutral-900'}`}
             >
               {d.getDate()}
             </div>
-            <div className="text-xs text-slate-600 mt-0.5">
+            <div className="text-xs text-stone-300 mt-0.5">
               {d.toLocaleDateString([], { month: 'short' })}
             </div>
           </div>
@@ -236,11 +237,11 @@ function WeekView({ tasksByDate, currentDate, onComplete }) {
           return (
             <div
               key={i}
-              className={`min-h-36 p-2 border-r border-white/5 last:border-r-0
-                ${isToday(d) ? 'bg-violet-600/5' : ''}`}
+              className={`min-h-36 p-2 border-r border-stone-100 last:border-r-0
+                ${isToday(d) ? 'bg-orange-50/50' : ''}`}
             >
               {dayTasks.length === 0 ? (
-                <div className="text-xs text-slate-700 text-center pt-4">—</div>
+                <div className="text-xs text-stone-200 text-center pt-4">—</div>
               ) : (
                 <div className="space-y-1">
                   {dayTasks.map((t) => (
@@ -267,11 +268,11 @@ function MonthView({ tasksByDate, currentDate, onComplete }) {
 
   return (
     <div>
-      <div className="glass overflow-hidden">
+      <div className="card overflow-hidden">
         {/* Day name header */}
-        <div className="grid grid-cols-7 border-b border-white/5">
+        <div className="grid grid-cols-7 border-b border-stone-100">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div key={d} className="py-2.5 text-center text-xs font-semibold text-stone-400 uppercase tracking-wider">
               {d}
             </div>
           ))}
@@ -288,33 +289,36 @@ function MonthView({ tasksByDate, currentDate, onComplete }) {
               <div
                 key={i}
                 onClick={() => setSelected(sel ? null : d)}
-                className={`min-h-[90px] p-1.5 border-r border-b border-white/5 cursor-pointer transition-colors
+                className={`min-h-[90px] p-1.5 border-r border-b border-stone-100 cursor-pointer transition-colors
                   ${inMonth ? '' : 'opacity-25'}
-                  ${isToday(d) ? 'bg-violet-600/10' : 'hover:bg-white/[0.03]'}
-                  ${sel ? 'bg-violet-600/20 ring-1 ring-inset ring-violet-500/50' : ''}`}
+                  ${isToday(d) ? 'bg-orange-50' : 'hover:bg-stone-50'}
+                  ${sel ? 'bg-orange-50 ring-1 ring-inset ring-orange-300/50' : ''}`}
               >
                 <div
                   className={`w-7 h-7 flex items-center justify-center text-sm font-semibold rounded-full mb-1
-                    ${isToday(d) ? 'bg-violet-500 text-white' : 'text-slate-300'}`}
+                    ${isToday(d) ? 'bg-orange-500 text-white' : 'text-stone-600'}`}
                 >
                   {d.getDate()}
                 </div>
                 <div className="space-y-0.5">
-                  {dayTasks.slice(0, 3).map((t) => (
-                    <div
-                      key={t.id}
-                      className="truncate text-xs px-1 py-0.5 rounded font-medium"
-                      style={{
-                        background: `${PRIO[t.priority]}20`,
-                        color: t.completed ? '#64748b' : PRIO[t.priority],
-                        textDecoration: t.completed ? 'line-through' : 'none',
-                      }}
-                    >
-                      {t.title}
-                    </div>
-                  ))}
+                  {dayTasks.slice(0, 3).map((t) => {
+                    const pillColor = t.color || PRIO[t.priority];
+                    return (
+                      <div
+                        key={t.id}
+                        className="truncate text-xs px-1 py-0.5 rounded font-medium"
+                        style={{
+                          background: `${pillColor}20`,
+                          color: t.completed ? '#64748b' : pillColor,
+                          textDecoration: t.completed ? 'line-through' : 'none',
+                        }}
+                      >
+                        {t.title}
+                      </div>
+                    );
+                  })}
                   {dayTasks.length > 3 && (
-                    <div className="text-xs text-slate-600 px-1">+{dayTasks.length - 3} more</div>
+                    <div className="text-xs text-stone-400 px-1">+{dayTasks.length - 3} more</div>
                   )}
                 </div>
               </div>
@@ -323,38 +327,69 @@ function MonthView({ tasksByDate, currentDate, onComplete }) {
         </div>
       </div>
 
-      {/* Selected day task detail */}
-      {selected && (
-        <motion.div
-          key={dateKey(selected)}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass p-4 mt-3"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-violet-300">{fmtShortDate(selected)}</div>
-            <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-xs">
-              Close
-            </button>
-          </div>
-          {selectedTasks.length === 0 ? (
-            <p className="text-slate-500 text-sm">No quests due on this day.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {selectedTasks.map((t) => (
-                <TaskPill key={t.id} task={t} onComplete={onComplete} />
-              ))}
+      {/* Selected day agenda panel */}
+      <AnimatePresence mode="wait">
+        {selected && (
+          <motion.div
+            key={dateKey(selected)}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className="card overflow-hidden mt-4"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-4 px-5 py-4 border-b border-stone-100">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0
+                ${isToday(selected) ? 'bg-orange-500 text-white' : 'bg-stone-100 text-stone-700'}`}>
+                {selected.getDate()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-neutral-900">
+                  {selected.toLocaleDateString([], { weekday: 'long' })}
+                </div>
+                <div className="text-sm text-stone-500">
+                  {selected.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {selectedTasks.length > 0 && (
+                  <span className="text-xs text-stone-400">
+                    {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                <button onClick={() => setSelected(null)}
+                  className="text-stone-400 hover:text-neutral-900 transition-colors p-1 rounded-lg hover:bg-stone-100">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-          )}
-        </motion.div>
-      )}
+
+            {/* Body */}
+            <div className="p-4">
+              {selectedTasks.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-stone-400">
+                  <CalendarDays size={28} className="text-stone-300" />
+                  <p className="text-sm">No tasks scheduled for this day.</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {selectedTasks.map((t) => (
+                    <TaskPill key={t.id} task={t} onComplete={onComplete} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // ── Year view ─────────────────────────────────────────────────────────────────
 
-function YearView({ tasksByDate, currentDate }) {
+function YearView({ tasksByDate, currentDate, onSelectMonth }) {
   const year = currentDate.getFullYear();
   const today = new Date();
 
@@ -367,9 +402,10 @@ function YearView({ tasksByDate, currentDate }) {
         const isCurrentMonth = today.getFullYear() === year && today.getMonth() === mi;
 
         return (
-          <div key={mi} className="glass p-3">
+          <div key={mi} onClick={() => onSelectMonth(mi)}
+            className="card p-3 cursor-pointer transition-all hover:ring-2 hover:ring-orange-400/40 hover:shadow-md">
             <div
-              className={`text-sm font-bold mb-2 ${isCurrentMonth ? 'text-violet-400' : 'text-slate-300'}`}
+              className={`text-sm font-bold mb-2 ${isCurrentMonth ? 'text-orange-500' : 'text-neutral-900'}`}
             >
               {MONTH_NAMES[mi]}
             </div>
@@ -377,7 +413,7 @@ function YearView({ tasksByDate, currentDate }) {
             {/* Weekday labels */}
             <div className="grid grid-cols-7 mb-1">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dn, dni) => (
-                <div key={dni} className="text-center text-slate-600" style={{ fontSize: '8px' }}>
+                <div key={dni} className="text-center text-stone-400" style={{ fontSize: '8px' }}>
                   {dn}
                 </div>
               ))}
@@ -393,34 +429,33 @@ function YearView({ tasksByDate, currentDate }) {
                 const k = `${year}-${String(mi + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const count = (tasksByDate[k] || []).length;
                 const isThisToday = today.getFullYear() === year && today.getMonth() === mi && today.getDate() === day;
+                const dotColor = tasksByDate[k]?.[0]?.color || '#f97316';
 
                 return (
                   <div
                     key={day}
-                    className="flex items-center justify-center"
-                    style={{ width: 16, height: 16 }}
-                    title={count > 0 ? `${count} quest${count !== 1 ? 's' : ''}` : String(day)}
+                    style={{ width: 16, height: 16, position: 'relative' }}
+                    title={count > 0 ? `${count} task${count !== 1 ? 's' : ''}` : String(day)}
                   >
-                    {count > 0 ? (
-                      <div
-                        className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                        style={{
-                          fontSize: '7px',
-                          background: count >= 4 ? '#7c3aed' : count === 3 ? '#6d28d9' : count === 2 ? '#5b21b6' : '#4c1d95',
-                        }}
-                      >
-                        {count}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          fontSize: '8px',
-                          color: isThisToday ? '#a78bfa' : '#334155',
-                          fontWeight: isThisToday ? 700 : 400,
-                        }}
-                      >
-                        {day}
-                      </div>
+                    <div style={{
+                      textAlign: 'center',
+                      fontSize: '8px',
+                      lineHeight: '16px',
+                      color: isThisToday ? '#f97316' : '#a8a29e',
+                      fontWeight: isThisToday ? 700 : 400,
+                    }}>
+                      {day}
+                    </div>
+                    {count > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 1,
+                        right: 1,
+                        width: 4,
+                        height: 4,
+                        borderRadius: '50%',
+                        background: dotColor,
+                      }} />
                     )}
                   </div>
                 );
@@ -447,13 +482,14 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { dark } = useTheme();
 
   useEffect(() => {
     api.get('/tasks').then((r) => {
       setTasks(r.data);
       setLoading(false);
     }).catch(() => {
-      toast.error('Failed to load quests');
+      toast.error('Failed to load tasks');
       setLoading(false);
     });
   }, []);
@@ -464,13 +500,9 @@ export default function Calendar() {
     try {
       const res = await api.patch(`/tasks/${task.id}/complete`);
       setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, ...res.data.task } : t));
-      const { xpGained, earlyBonus } = res.data;
-      const msg = earlyBonus > 0
-        ? `+${xpGained} XP (${earlyBonus} early bonus!) ⚡`
-        : `+${xpGained} XP earned!`;
-      toast.success(msg);
+      toast.success('Task completed!');
     } catch {
-      toast.error('Failed to complete quest');
+      toast.error('Failed to complete task');
     }
   };
 
@@ -499,32 +531,30 @@ export default function Calendar() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-violet-400 animate-pulse text-lg">Loading schedule...</div>
+    <div className="flex items-center justify-center py-20">
+      <div className="text-stone-400 animate-pulse text-lg">Loading schedule...</div>
     </div>
   );
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}
-    >
-      <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Page header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <CalendarDays size={24} className="text-violet-400" />
+            <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-2">
+              <CalendarDays size={24} className="text-orange-500" />
               Schedule
             </h1>
-            <p className="text-slate-500 text-sm mt-0.5">Your quests across time</p>
+            <p className="text-stone-500 text-sm mt-0.5">Your tasks across time</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* View selector */}
             <div
               className="flex rounded-xl overflow-hidden p-0.5 gap-0.5"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.25)' }}
+              style={dark
+                ? { background: '#292524', border: '1px solid #44403c' }
+                : { background: '#f3f2ef', border: '1px solid #e5e3de' }}
             >
               {VIEWS.map((v) => (
                 <button
@@ -532,8 +562,10 @@ export default function Calendar() {
                   onClick={() => setView(v.key)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                     view === v.key
-                      ? 'bg-violet-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : dark
+                        ? 'text-stone-400 hover:text-stone-100 hover:bg-stone-700'
+                        : 'text-stone-500 hover:text-neutral-900'
                   }`}
                 >
                   {v.label}
@@ -545,19 +577,19 @@ export default function Calendar() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => navigate(-1)}
-                className="glass p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                className="card p-2 rounded-xl text-stone-500 hover:text-neutral-900 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="glass px-3 py-1.5 text-sm text-slate-400 hover:text-white transition-colors rounded-xl"
+                className="card px-3 py-1.5 text-sm text-stone-500 hover:text-neutral-900 transition-colors rounded-xl"
               >
                 Today
               </button>
               <button
                 onClick={() => navigate(1)}
-                className="glass p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                className="card p-2 rounded-xl text-stone-500 hover:text-neutral-900 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -566,7 +598,7 @@ export default function Calendar() {
         </div>
 
         {/* Current period label */}
-        <div className="text-slate-300 font-semibold mb-4 text-lg">{getTitle()}</div>
+        <div className="text-neutral-900 font-semibold mb-4 text-lg">{getTitle()}</div>
 
         {/* View content */}
         <motion.div
@@ -601,10 +633,13 @@ export default function Calendar() {
             <YearView
               tasksByDate={tasksByDate}
               currentDate={currentDate}
+              onSelectMonth={(mi) => {
+                setCurrentDate(new Date(currentDate.getFullYear(), mi, 1));
+                setView('month');
+              }}
             />
           )}
         </motion.div>
-      </div>
     </div>
   );
 }

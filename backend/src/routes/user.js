@@ -1,45 +1,24 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { calculateLevel } from '../lib/gamification.js';
 
 const router = Router();
 router.use(authMiddleware);
 
-// GET /api/user/me — full profile with achievements
+// GET /api/user/me — user profile
 router.get('/me', async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      include: {
-        achievements: {
-          include: { achievement: true },
-          orderBy: { unlockedAt: 'desc' },
-        },
-      },
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const levelInfo = calculateLevel(user.xp);
 
     res.json({
       id: user.id,
       email: user.email,
       username: user.username,
-      xp: user.xp,
-      level: levelInfo.level,
-      currentLevelXp: levelInfo.currentLevelXp,
-      xpForNext: levelInfo.xpForNext,
-      streak: user.streak,
-      longestStreak: user.longestStreak,
       avatar: user.avatar,
       isPublic: user.isPublic,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
-      achievements: user.achievements.map((ua) => ({
-        ...ua.achievement,
-        unlockedAt: ua.unlockedAt,
-      })),
     });
   } catch (err) {
     console.error(err);

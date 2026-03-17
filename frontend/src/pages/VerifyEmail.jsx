@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Loader, Sword } from 'lucide-react';
+import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import api from '../lib/api';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -16,54 +17,40 @@ export default function VerifyEmail() {
       return;
     }
 
-    fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.message) {
-          setStatus('success');
-          setMessage(data.message);
-        } else {
-          setStatus('error');
-          setMessage(data.error || 'Verification failed.');
-        }
+    api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+      .then((res) => {
+        setStatus('success');
+        setMessage(res.data.message);
       })
-      .catch(() => {
+      .catch((err) => {
         setStatus('error');
-        setMessage('Could not connect to server.');
+        setMessage(err.response?.data?.error || 'Verification failed.');
       });
   }, [searchParams]);
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: 'radial-gradient(ellipse at top, #1a1a2e 0%, #0f0f1a 70%)' }}
-    >
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[#f7f6f3]">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="glass p-8 w-full max-w-md text-center glow"
+        className="card p-8 w-full max-w-md text-center"
       >
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-        >
-          <Sword size={32} className="text-white" />
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-6">Email Verification</h1>
+        <img src="/favicon.svg" alt="Orbit" className="w-12 h-12 mx-auto mb-4" />
+        <h1 className="text-2xl font-bold text-neutral-900 mb-6">Email Verification</h1>
 
         {status === 'loading' && (
           <div className="flex flex-col items-center gap-3">
-            <Loader size={40} className="text-violet-400 animate-spin" />
-            <p className="text-slate-400">Verifying your email...</p>
+            <Loader size={40} className="text-orange-400 animate-spin" />
+            <p className="text-stone-500">Verifying your email...</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="flex flex-col items-center gap-4">
-            <CheckCircle size={48} className="text-green-400" />
-            <p className="text-green-300 font-semibold text-lg">Email verified!</p>
-            <p className="text-slate-400 text-sm">{message}</p>
+            <CheckCircle size={48} className="text-emerald-500" />
+            <p className="text-emerald-600 font-semibold text-lg">Email verified!</p>
+            <p className="text-stone-500 text-sm">{message}</p>
             <Link to="/" className="btn-primary px-6 py-2.5 inline-block mt-2">
               Go to Dashboard
             </Link>
@@ -73,9 +60,9 @@ export default function VerifyEmail() {
         {status === 'error' && (
           <div className="flex flex-col items-center gap-4">
             <XCircle size={48} className="text-red-400" />
-            <p className="text-red-300 font-semibold text-lg">Verification failed</p>
-            <p className="text-slate-400 text-sm">{message}</p>
-            <Link to="/" className="text-violet-400 hover:text-violet-300 text-sm mt-2">
+            <p className="text-red-500 font-semibold text-lg">Verification failed</p>
+            <p className="text-stone-500 text-sm">{message}</p>
+            <Link to="/" className="text-orange-500 hover:text-orange-600 text-sm mt-2">
               Back to app
             </Link>
           </div>
