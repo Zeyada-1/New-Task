@@ -11,6 +11,9 @@ function createTransporter() {
     port: parseInt(SMTP_PORT || '587'),
     secure: parseInt(SMTP_PORT || '587') === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 }
 
