@@ -10,12 +10,12 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const orbits = await prisma.task.findMany({
-      where: { userId: req.userId, parentId: null },
+      where: { userId: req.userId, parentId: null, isOrbit: true },
       include: {
         subtasks: {
-          orderBy: { createdAt: 'asc' },
+          orderBy: { order: 'asc' },
           include: {
-            subtasks: { orderBy: { createdAt: 'asc' } },
+            subtasks: { orderBy: { order: 'asc' } },
           },
         },
       },
@@ -38,7 +38,7 @@ router.post(
 
     try {
       const orbit = await prisma.task.create({
-        data: { title: req.body.title.trim(), userId: req.userId },
+        data: { title: req.body.title.trim(), userId: req.userId, isOrbit: true },
         include: { subtasks: true },
       });
       res.status(201).json(orbit);
@@ -71,11 +71,14 @@ router.post(
       if (!parent) return res.status(404).json({ error: 'Task not found' });
 
       const { title, description, priority, category, color, dueDate } = req.body;
+      // Assign order = next available position
+      const siblingCount = await prisma.task.count({ where: { parentId: req.params.id } });
       const subtask = await prisma.task.create({
         data: {
           title: title.trim(),
           userId: req.userId,
           parentId: req.params.id,
+          order: siblingCount,
           ...(description && { description: description.trim() }),
           ...(priority && { priority }),
           ...(category && { category }),
@@ -169,6 +172,32 @@ router.delete('/:id', async (req, res) => {
 
     await prisma.task.delete({ where: { id: req.params.id } });
     res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/orbit/:id/subtasks/reorder — reorder subtasks by array of IDs
+router.patch('/:id/subtasks/reorder', async (req, res) => {
+  try {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds must be an array' });
+
+    const parent = await prisma.task.findFirst({ where: { id: req.params.id, userId: req.userId } });
+    if (!parent) return res.status(404).json({ error: 'Task not found' });
+
+    // Update each subtask's order
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        prisma.task.updateMany({
+          where: { id, parentId: req.params.id, userId: req.userId },
+          data: { order: index },
+        })
+      )
+    );
+
+    res.json({ message: 'Reordered' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

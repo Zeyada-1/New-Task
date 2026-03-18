@@ -5,6 +5,7 @@ import { Plus, X, Trash2, ChevronLeft, Check, Pencil, Moon, Sun } from 'lucide-r
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import AddTaskModal from '../components/AddTaskModal';
+import CreateOrbitModal from '../components/CreateOrbitModal';
 
 /*  constants  */
 const BASE_RADIUS     = 200;
@@ -355,7 +356,7 @@ function Planet({ node, orbitRadius, ringIndex, posInRing, ringSize,
   const isComplete = prog >= 1 && countLeaves(node) > 0;
   const expandable = hasChildren(node);
   const SIZE       = 38;
-  const showLabel  = (zoom ?? 1) >= 1.3;
+  const showLabel  = (zoom ?? 1) >= 0.85;
 
   const sphere = (
     <div style={{ position: 'relative', width: SIZE, height: SIZE }}
@@ -378,11 +379,11 @@ function Planet({ node, orbitRadius, ringIndex, posInRing, ringSize,
       )}
       <button onClick={expandable ? onExpand : onToggle} style={{
         width: SIZE, height: SIZE, borderRadius: '50%', cursor: 'pointer',
-        background: isComplete ? '#6b7280' : '#b8b4ae',
-        border: `2px solid ${isComplete ? '#4b5563' : '#8a8680'}`,
+        background: isComplete ? '#4b5563' : '#57534e',
+        border: `2px solid ${isComplete ? '#374151' : '#44403c'}`,
         boxShadow: isComplete
-          ? 'inset 0 0 14px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.3)'
-          : 'inset 0 0 10px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.22)',
+          ? 'inset 0 0 14px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.35)'
+          : 'inset 0 0 10px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.28)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexDirection: 'column', gap: 1, overflow: 'hidden',
         padding: showLabel ? '2px 3px' : 0,
@@ -393,19 +394,22 @@ function Planet({ node, orbitRadius, ringIndex, posInRing, ringSize,
           <>
             <span style={{
               fontSize: 7, fontWeight: 700, lineHeight: 1.2, textAlign: 'center',
-              color: 'rgba(255,255,255,0.9)',
+              color: '#fafaf9',
+              textShadow: '0 1px 3px rgba(0,0,0,0.9)',
               maxWidth: SIZE - 6, wordBreak: 'break-word',
               display: '-webkit-box', WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>{node.title}</span>
             {expandable && (
-              <span style={{ fontSize: 6, color: 'rgba(255,255,255,0.6)' }}>
+              <span style={{ fontSize: 6, color: 'rgba(250,250,249,0.75)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
                 {countDoneLeaves(node)}/{countLeaves(node)}
               </span>
             )}
           </>
         ) : expandable ? (
-          <span style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
+          <span style={{ fontSize: 8, fontWeight: 700, color: '#fafaf9',
+            textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
             {countDoneLeaves(node)}/{countLeaves(node)}
           </span>
         ) : (
@@ -426,8 +430,27 @@ function Planet({ node, orbitRadius, ringIndex, posInRing, ringSize,
         )}
       </AnimatePresence>
 
+      {/* Always-visible floating label below sphere */}
+      {!showLabel && (
+        <div style={{
+          position: 'absolute', top: SIZE + 4, left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: 8, fontWeight: 600,
+          color: 'rgba(250,250,249,0.7)',
+          textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+          whiteSpace: 'nowrap',
+          maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis',
+          textAlign: 'center',
+          pointerEvents: 'none', zIndex: 5,
+          letterSpacing: 0.2,
+        }}>
+          {node.title}
+        </div>
+      )}
+
+      {/* Expanded hover tooltip (only when zoomed-in label is active) */}
       <AnimatePresence>
-        {hovered && !showLabel && (
+        {hovered && showLabel && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             style={{ position: 'absolute', top: SIZE + 8, left: '50%',
@@ -467,6 +490,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
   const [editingSubtask, setEditingSubtask] = useState(null);
   const [editingCenter, setEditingCenter]   = useState(null);
   const [centerHovered, setCenterHovered]   = useState(false);
+  const [pendingToggleId, setPendingToggleId] = useState(null);
   const [expandedChild, setExpandedChild]   = useState(null);
   const [zoom, setZoom]                   = useState(1);
   const [escapingPlanets, setEscapingPlanets] = useState({});
@@ -519,7 +543,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
     addColor:    '#a8a29e',
   };
 
-  const [speedingIds, setSpeedingIds]     = useState(() => new Set());
+  const [speedingIds, setSpeedingIds] = useState(() => new Set());
   const arenaRef         = useRef(null);
   const planetMountTime  = useRef({});
   const planetAngleRefs  = useRef({});
@@ -578,6 +602,22 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
     setZoom(z => Math.min(2.5, Math.max(0.3, z - e.deltaY * 0.001)));
   };
 
+  const requestToggle = (id) => {
+    const task = displaySubtasks.find(t => t.id === id);
+    const willComplete = task && !task.completed;
+    if (!willComplete || localStorage.getItem('orbit-complete-skip') === '1') {
+      handleToggle(id);
+      return;
+    }
+    setPendingToggleId(id);
+  };
+
+  const confirmToggle = (dontShowAgain) => {
+    if (dontShowAgain) localStorage.setItem('orbit-complete-skip', '1');
+    handleToggle(pendingToggleId);
+    setPendingToggleId(null);
+  };
+
   const handleToggle = async (id) => {
     const task = displaySubtasks.find(t => t.id === id);
     const willComplete = task && !task.completed;
@@ -585,12 +625,11 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
     if (willComplete) {
       const meta = ringAssignments.find(a => a.planet.id === id);
       const escapeRadius = meta ? BASE_RADIUS + meta.ringIndex * RING_GAP : null;
-      const escapeColor  = task?.color || null;
 
-      // Phase 1: spin up on the orbit track
+      // Phase 1: accelerate on orbit for 700ms
       setSpeedingIds(prev => new Set([...prev, id]));
 
-      // Phase 2: read the planet's actual live angle from its RAF ref and spawn escape overlay
+      // Phase 2: after speed-up, read live angle and launch tangentially
       setTimeout(() => {
         setSpeedingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
         if (escapeRadius !== null) {
@@ -598,32 +637,32 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
           const rad  = (actualAngle * Math.PI) / 180;
           const x    = arenaHalf + Math.cos(rad) * escapeRadius;
           const y    = arenaHalf + Math.sin(rad) * escapeRadius;
+          // Tangential direction (perpendicular to radius) + slight outward bias
           const tanX = -Math.sin(rad);
           const tanY =  Math.cos(rad);
           const radX =  Math.cos(rad);
           const radY =  Math.sin(rad);
-          const raw  = { x: tanX * 0.8 + radX * 0.4, y: tanY * 0.8 + radY * 0.4 };
+          const raw  = { x: tanX * 0.75 + radX * 0.35, y: tanY * 0.75 + radY * 0.35 };
           const len  = Math.sqrt(raw.x * raw.x + raw.y * raw.y);
           setEscapingPlanets(prev => ({
             ...prev,
-            [id]: { x, y, dirX: raw.x / len, dirY: raw.y / len, color: escapeColor },
+            [id]: { x, y, dirX: raw.x / len, dirY: raw.y / len },
           }));
         }
-      }, 650);
+      }, 700);
     }
 
     try {
       await api.patch(`/orbit/subtasks/${id}/toggle`);
       if (willComplete) {
         delete planetMountTime.current[id];
-        // Escape overlay duration ~1050ms → then clean up and redistribute
+        // Speed-up 700ms + escape 1100ms → then clean up
         setTimeout(() => {
           setEscapingPlanets(prev => { const n = { ...prev }; delete n[id]; return n; });
           setGoneIds(prev => new Set([...prev, id]));
           onUpdate();
-        }, 650 + 1050);
+        }, 700 + 1100);
       } else {
-        // Un-completing: let the planet come back
         setGoneIds(prev => { const n = new Set(prev); n.delete(id); return n; });
         onUpdate();
       }
@@ -718,10 +757,17 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
       {/* Zoom slider — vertical, right side, translucent until hover */}
       <style>{`
         .zoom-slider-track {
-          opacity: 0.2;
+          opacity: 0.28;
           transition: opacity 0.3s ease;
         }
         .zoom-slider-track:hover {
+          opacity: 1;
+        }
+        .orbit-edit-btn {
+          opacity: 0.58;
+          transition: opacity 0.3s ease;
+        }
+        .orbit-edit-btn:hover {
           opacity: 1;
         }
         .zoom-range-horiz {
@@ -757,6 +803,25 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
         </div>
         <span style={{ fontSize: 9, color: T.panelLabel, userSelect: 'none', textTransform: 'uppercase', letterSpacing: 0.5 }}>zoom</span>
       </div>
+
+      {/* Edit orbit button — translucent, solid on hover like zoom slider */}
+      <button className="orbit-edit-btn" onClick={() => setEditingCenter(node)}
+        style={{
+          position: 'absolute', left: 20, top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 60,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          background: dark ? 'rgba(28, 22, 17, 0.92)' : 'rgba(255,255,255,0.9)',
+          border: dark ? '1px solid rgba(251,146,60,0.45)' : `1px solid ${T.panelBorder}`,
+          borderRadius: 20, padding: '14px 14px',
+          backdropFilter: 'blur(6px)',
+          boxShadow: dark ? '0 0 0 1px rgba(251,146,60,0.2), 0 10px 24px rgba(0,0,0,0.28)' : '0 8px 20px rgba(0,0,0,0.08)',
+          cursor: 'pointer',
+          transition: 'background 0.4s, border-color 0.4s',
+        }}>
+        <Pencil size={16} style={{ color: dark ? '#fb923c' : T.panelPct }} />
+        <span style={{ fontSize: 10, color: dark ? '#fdba74' : T.panelLabel, userSelect: 'none', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>edit task</span>
+      </button>
 
       {/* Zoomable orbit arena */}
       <div ref={arenaRef} onWheel={handleWheel}
@@ -847,10 +912,10 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
                         ? { opacity: 0, scale: 0.15 }
                         : { opacity: 0 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.2 }}
+                      exit={{ opacity: 0 }}
                       transition={joiningIds.has(s.id)
                         ? { duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }
-                        : { duration: 0.3, ease: 'easeOut' }}>
+                        : { duration: 0.01 }}>
                       <div style={{ pointerEvents: speedingIds.has(s.id) ? 'none' : 'auto' }}>
                         <Planet node={s} orbitRadius={r}
                           ringIndex={ringIndex} posInRing={posInRing} ringSize={ringSize}
@@ -859,7 +924,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
                           ringStartTime={ringStartTimes.current[ringIndex]}
                           isNew={joiningIds.has(s.id)}
                           speeding={speedingIds.has(s.id)}
-                          onToggle={() => handleToggle(s.id)}
+                          onToggle={() => requestToggle(s.id)}
                           onDelete={() => handleDelete(s.id)}
                           angleRef={planetAngleRefs.current[s.id]}
                           onExpand={() => hasChildren(s) && setExpandedChild(s.id)} />
@@ -871,8 +936,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
 
             {/* Escape overlays — orange sphere rockets away after spin-up */}
             <AnimatePresence>
-              {Object.entries(escapingPlanets).map(([id, { x, y, dirX, dirY, color }]) => {
-                const escColor = color || '#fb923c';
+              {Object.entries(escapingPlanets).map(([id, { x, y, dirX, dirY }]) => {
                 return (
                 <motion.div key={`esc-${id}`}
                   style={{
@@ -881,26 +945,20 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
                     width: 38, height: 38,
                     marginLeft: -19, marginTop: -19,
                     borderRadius: '50%',
-                    background: `radial-gradient(circle at 35% 30%, white 0%, ${escColor} 60%)`,
-                    border: `2px solid ${escColor}`,
-                    boxShadow: `0 0 0 4px ${escColor}4d, 0 4px 14px ${escColor}66`,
+                    background: 'radial-gradient(circle at 35% 30%, #e7e5e4 0%, #b8b4ae 60%)',
+                    border: '2px solid #8a8680',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     pointerEvents: 'none',
                     zIndex: 30,
                   }}
-                  initial={{ x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 }}
+                  initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
                   animate={{
-                    x:       [0, dirX*5,  dirX*22,  dirX*90,  dirX*360,  dirX*1200],
-                    y:       [0, dirY*5,  dirY*22,  dirY*90,  dirY*360,  dirY*1200],
-                    opacity: [1, 1,       0.95,     0.75,     0.3,       0],
-                    scale:   [1, 1.03,    1.12,     0.95,     0.5,       0.08],
-                    rotate:  [0,
-                      dirX > 0 ?  4  : -4,
-                      dirX > 0 ?  18 : -18,
-                      dirX > 0 ?  70 : -70,
-                      dirX > 0 ? 175 : -175,
-                      dirX > 0 ? 340 : -340],
+                    x: dirX * 800,
+                    y: dirY * 800,
+                    opacity: 0,
+                    scale: 0.4,
                   }}
-                  transition={{ duration: 1.05, times: [0, 0.07, 0.18, 0.38, 0.65, 1], ease: 'easeIn' }}
+                  transition={{ duration: 1.1, ease: [0.25, 0.1, 0.25, 1] }}
                 />
               );})}
             </AnimatePresence>
@@ -952,6 +1010,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
       {editingSubtask && (
         <AddTaskModal
           initialTask={editingSubtask}
+          hideOrbitToggle
           onClose={() => setEditingSubtask(null)}
           onTaskUpdated={() => { setEditingSubtask(null); onUpdate(); }}
         />
@@ -959,10 +1018,93 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
       {editingCenter && (
         <AddTaskModal
           initialTask={editingCenter}
+          hideOrbitToggle
           onClose={() => setEditingCenter(null)}
           onTaskUpdated={() => { setEditingCenter(null); onUpdate(); }}
         />
       )}
+
+      {/* Task-completion confirmation dialog */}
+      <AnimatePresence>
+      {pendingToggleId && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={() => setPendingToggleId(null)}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: dark ? 'rgba(10,8,7,0.72)' : 'rgba(0,0,0,0.38)',
+            backdropFilter: 'blur(4px)',
+          }}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: dark ? '#1c1917' : '#fff',
+              border: `1px solid ${dark ? '#44403c' : '#e5e3de'}`,
+              borderRadius: 16,
+              padding: '28px 32px',
+              maxWidth: 340,
+              width: '90%',
+              boxShadow: dark ? '0 18px 40px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.15)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Check size={22} color="#f97316" />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: dark ? '#f5f5f4' : '#1c1917' }}>
+                Mark this task as done?
+              </p>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: dark ? '#c9c3bb' : '#78716c', maxWidth: 240 }}>
+                {displaySubtasks.find(t => t.id === pendingToggleId)?.title}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+              <button
+                onClick={() => setPendingToggleId(null)}
+                style={{
+                  flex: 1, padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600,
+                  background: dark ? '#292524' : '#f5f5f4',
+                  border: `1px solid ${dark ? '#57534e' : '#e5e3de'}`,
+                  color: dark ? '#e7e5e4' : '#57534e',
+                }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmToggle(false)}
+                style={{
+                  flex: 1, padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600,
+                  background: '#f97316', border: 'none', color: 'white',
+                }}>
+                Mark done
+              </button>
+            </div>
+            <button
+              onClick={() => confirmToggle(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 11, color: dark ? '#78716c' : '#a8a29e',
+                textDecoration: 'underline', padding: 0,
+              }}>
+              Don't show this again
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -1111,6 +1253,7 @@ function OrbitCard({ orbit, onExpand, onDelete, onEdit }) {
 
 /*  Page  */
 export default function Orbit() {
+  const { dark } = useTheme();
   const [orbits, setOrbits]               = useState([]);
   const [loading, setLoading]             = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1138,6 +1281,18 @@ export default function Orbit() {
     catch { toast.error('Failed to delete'); }
   };
 
+  const removeFromOrbitOnly = async () => {
+    const id = confirmDelete;
+    setConfirmDelete(null);
+    try {
+      await api.patch(`/tasks/${id}`, { isOrbit: false });
+      toast.success('Removed from Orbit and kept in Tasks');
+      load();
+    } catch {
+      toast.error('Failed to update orbit');
+    }
+  };
+
   const openOrbit = orbits.find(o => o.id === openOrbitId);
 
   if (loading) return (
@@ -1154,41 +1309,47 @@ export default function Orbit() {
         {confirmDelete && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, zIndex: 200,
-              background: 'rgba(247,246,243,0.7)', backdropFilter: 'blur(6px)',
+              background: dark ? 'rgba(10,8,7,0.68)' : 'rgba(247,246,243,0.7)', backdropFilter: 'blur(6px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => setConfirmDelete(null)}>
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               onClick={e => e.stopPropagation()}
-              style={{ background: '#ffffff', borderRadius: 18, padding: '28px 28px 24px',
+              style={{ background: dark ? '#1c1917' : '#ffffff', borderRadius: 18, padding: '28px 28px 24px',
                 maxWidth: 320, width: '90%', textAlign: 'center',
-                border: '1px solid #e5e3de',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+                border: dark ? '1px solid #44403c' : '1px solid #e5e3de',
+                boxShadow: dark ? '0 18px 40px rgba(0,0,0,0.45)' : '0 8px 32px rgba(0,0,0,0.1)' }}>
               <div style={{ width: 42, height: 42, borderRadius: '50%',
-                background: '#fff7ed', border: '1.5px solid #fed7aa',
+                background: dark ? 'rgba(249,115,22,0.12)' : '#fff7ed', border: dark ? '1.5px solid rgba(251,146,60,0.45)' : '1.5px solid #fed7aa',
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'center', margin: '0 auto 14px' }}>
                 <Trash2 size={18} color="#f97316" />
               </div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1c1917', marginBottom: 6 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: dark ? '#f5f5f4' : '#1c1917', marginBottom: 6 }}>
                 Delete orbit?
               </h3>
-              <p style={{ fontSize: 12.5, color: '#a8a29e', marginBottom: 22, lineHeight: 1.6 }}>
-                This orbit and all its tasks will be permanently removed.
+              <p style={{ fontSize: 12.5, color: dark ? '#c9c3bb' : '#a8a29e', marginBottom: 22, lineHeight: 1.6 }}>
+                Do you also want to delete the task itself?
               </p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setConfirmDelete(null)}
                   style={{ flex: 1, padding: '9px 0', borderRadius: 10,
-                    border: '1.5px solid #e5e3de', background: '#fafaf9',
-                    fontSize: 13, fontWeight: 600, color: '#57534e', cursor: 'pointer' }}>
+                    border: dark ? '1.5px solid #57534e' : '1.5px solid #e5e3de', background: dark ? '#292524' : '#fafaf9',
+                    fontSize: 13, fontWeight: 600, color: dark ? '#e7e5e4' : '#57534e', cursor: 'pointer' }}>
                   Cancel
+                </button>
+                <button onClick={removeFromOrbitOnly}
+                  style={{ flex: 1, padding: '9px 0', borderRadius: 10,
+                    border: dark ? '1.5px solid rgba(251,146,60,0.45)' : '1.5px solid #fed7aa', background: dark ? 'rgba(249,115,22,0.1)' : '#fff7ed',
+                    fontSize: 12.5, fontWeight: 600, color: '#c2410c', cursor: 'pointer' }}>
+                  Keep Task
                 </button>
                 <button onClick={confirmDeleteOrbit}
                   style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: 'none',
                     background: '#f97316', fontSize: 13, fontWeight: 600,
                     color: '#fff', cursor: 'pointer' }}>
-                  Delete
+                  Delete Both
                 </button>
               </div>
             </motion.div>
@@ -1196,7 +1357,7 @@ export default function Orbit() {
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Orbit</h1>
           <p className="text-stone-400 text-sm mt-0.5">Goal at the center, steps in orbit</p>
@@ -1207,6 +1368,17 @@ export default function Orbit() {
           <Plus size={15} /> New Orbit
         </motion.button>
       </div>
+
+      {/* Orbit explainer */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        className="card p-4 mb-8"
+        style={{ borderLeft: '3px solid #f97316' }}>
+        <p className="text-sm text-stone-500 leading-relaxed">
+          <span className="font-semibold text-neutral-900">Orbits</span> are your big goals broken into actionable steps.
+          Each orbit has a central objective with tasks orbiting around it — complete all the orbiting tasks to achieve your goal.
+          Create an orbit when you have a goal that needs multiple steps to accomplish.
+        </p>
+      </motion.div>
 
       {orbits.length === 0 && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -1262,14 +1434,15 @@ export default function Orbit() {
       </AnimatePresence>
 
       {showCreateModal && (
-        <AddTaskModal
+        <CreateOrbitModal
           onClose={() => setShowCreateModal(false)}
-          onTaskAdded={() => { setShowCreateModal(false); load(); }}
+          onOrbitCreated={() => { setShowCreateModal(false); load(); }}
         />
       )}
       {editingOrbit && (
         <AddTaskModal
           initialTask={editingOrbit}
+          hideOrbitToggle
           onClose={() => setEditingOrbit(null)}
           onTaskUpdated={() => { setEditingOrbit(null); load(); }}
         />

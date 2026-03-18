@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Filter, Search } from 'lucide-react';
+import { Plus, Search, ArrowUpDown } from 'lucide-react';
 import api from '../lib/api';
 import { useTheme } from '../context/ThemeContext';
 import TaskCard from '../components/TaskCard';
@@ -9,6 +9,16 @@ import TaskDetailModal from '../components/TaskDetailModal';
 
 const FILTERS = ['All', 'Active', 'Completed'];
 const PRIORITIES = ['All', 'LOW', 'MEDIUM', 'HIGH'];
+const SORT_OPTIONS = [
+  { value: 'created-desc', label: 'Newest first' },
+  { value: 'created-asc', label: 'Oldest first' },
+  { value: 'priority-desc', label: 'Priority: High to Low' },
+  { value: 'priority-asc', label: 'Priority: Low to High' },
+  { value: 'due-asc', label: 'Due date: Soonest first' },
+  { value: 'due-desc', label: 'Due date: Latest first' },
+  { value: 'title-asc', label: 'Title: A to Z' },
+];
+const PRIORITY_ORDER = { LOW: 1, MEDIUM: 2, HIGH: 3 };
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -16,6 +26,7 @@ export default function Tasks() {
   const { dark } = useTheme();
   const [filter, setFilter] = useState('Active');
   const [priority, setPriority] = useState('All');
+  const [sortBy, setSortBy] = useState('created-desc');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -29,10 +40,11 @@ export default function Tasks() {
 
   const handleTaskAdded = (task) => setTasks((prev) => [task, ...prev]);
   const handleTaskUpdated = (updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
-  const handleComplete = (id) => setTasks((prev) => prev.map((t) => t.id === id ? { ...t, completed: true } : t));
+  const handleComplete = (id) => setTasks((prev) => prev.map((t) => t.id === id ? { ...t, completed: true, completedAt: new Date().toISOString() } : t));
   const handleDelete = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
   const handleUncomplete = (id) => setTasks((prev) => prev.map((t) => t.id === id ? { ...t, completed: false, completedAt: null } : t));
   const handleRestore = (task) => setTasks((prev) => [task, ...prev]);
+  const handleConvertToOrbit = (id) => setTasks((prev) => prev.map((t) => t.id === id ? { ...t, isOrbit: true } : t));
 
   const filtered = tasks.filter((t) => {
     if (filter === 'Active' && t.completed) return false;
@@ -40,6 +52,32 @@ export default function Tasks() {
     if (priority !== 'All' && t.priority !== priority) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'created-asc':
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      case 'priority-desc':
+        return (PRIORITY_ORDER[b.priority] ?? 0) - (PRIORITY_ORDER[a.priority] ?? 0);
+      case 'priority-asc':
+        return (PRIORITY_ORDER[a.priority] ?? 0) - (PRIORITY_ORDER[b.priority] ?? 0);
+      case 'due-asc': {
+        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        return aTime - bTime;
+      }
+      case 'due-desc': {
+        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Number.NEGATIVE_INFINITY;
+        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Number.NEGATIVE_INFINITY;
+        return bTime - aTime;
+      }
+      case 'title-asc':
+        return a.title.localeCompare(b.title);
+      case 'created-desc':
+      default:
+        return new Date(b.createdAt) - new Date(a.createdAt);
+    }
   });
 
   return (
@@ -95,24 +133,55 @@ export default function Tasks() {
               </button>
             ))}
           </div>
+
+          {/* Sort */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="flex items-center gap-1 text-xs text-stone-500 whitespace-nowrap">
+              <ArrowUpDown size={13} />
+              Sort
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="input-field py-1.5 px-2 text-sm min-w-[180px]"
+              style={{
+                background: dark ? '#1c1917' : '#ffffff',
+                color: dark ? '#e7e5e4' : '#292524',
+                borderColor: dark ? '#44403c' : '#d6d3d1',
+              }}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option
+                  key={opt.value}
+                  value={opt.value}
+                  style={{
+                    background: dark ? '#1c1917' : '#ffffff',
+                    color: dark ? '#e7e5e4' : '#292524',
+                  }}
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Count */}
-      <p className="text-stone-400 text-sm">{filtered.length} task{filtered.length !== 1 ? 's' : ''} found</p>
+      <p className="text-stone-400 text-sm">{sorted.length} task{sorted.length !== 1 ? 's' : ''} found</p>
 
       {/* Task List */}
       {loading ? (
         <div className="text-center text-stone-400 animate-pulse py-12">Loading tasks...</div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="text-stone-400">No tasks found. {filter === 'Active' && 'Add a new task to begin!'}</p>
         </div>
       ) : (
         <AnimatePresence>
           <div className="space-y-3">
-            {filtered.map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} onDelete={handleDelete} onUncomplete={handleUncomplete} onRestore={handleRestore} onEdit={setEditingTask} onOpen={setOpenTask} />
+            {sorted.map((task) => (
+              <TaskCard key={task.id} task={task} onComplete={handleComplete} onDelete={handleDelete} onUncomplete={handleUncomplete} onRestore={handleRestore} onEdit={setEditingTask} onOpen={setOpenTask} onConvertToOrbit={handleConvertToOrbit} />
             ))}
           </div>
         </AnimatePresence>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Circle, Trash2, Calendar, Tag, Pencil, ChevronRight, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Calendar, Tag, Pencil, ChevronRight, ChevronDown, Orbit } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useUndo } from '../context/UndoContext';
@@ -8,22 +8,20 @@ import { useUndo } from '../context/UndoContext';
 const PRIORITY_COLORS = { LOW: '#10b981', MEDIUM: '#f59e0b', HIGH: '#ef4444' };
 const PRIORITY_LABELS = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' };
 
-export default function TaskCard({ task, onComplete, onDelete, onUncomplete, onRestore, onEdit, onOpen }) {
+export default function TaskCard({ task, onComplete, onDelete, onUncomplete, onRestore, onEdit, onOpen, onConvertToOrbit }) {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
   const { registerUndo } = useUndo();
 
-  // Fetch subtasks from /orbit (which always includes them) since the tasks list
-  // endpoint may not have returned subtasks if the server predates that change.
+  // Fetch subtasks if not already included in the task data
   useEffect(() => {
     if (task.subtasks?.length > 0) return; // already have them
     let alive = true;
-    api.get('/orbit')
+    api.get(`/tasks/${task.id}`)
       .then(res => {
         if (!alive) return;
-        const found = res.data.find(t => t.id === task.id);
-        if (found?.subtasks?.length > 0) setSubtasks(found.subtasks);
+        if (res.data?.subtasks?.length > 0) setSubtasks(res.data.subtasks);
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -90,6 +88,16 @@ export default function TaskCard({ task, onComplete, onDelete, onUncomplete, onR
     }
   };
 
+  const handleConvertToOrbit = async () => {
+    try {
+      await api.patch(`/tasks/${task.id}`, { isOrbit: true });
+      toast.success('Task promoted to Orbit!');
+      onConvertToOrbit?.(task.id);
+    } catch {
+      toast.error('Failed to convert to orbit');
+    }
+  };
+
   const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
 
   const formatDue = (dateStr) => {
@@ -139,6 +147,11 @@ export default function TaskCard({ task, onComplete, onDelete, onUncomplete, onR
                   <motion.span animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                     <ChevronDown size={13} />
                   </motion.span>
+                </button>
+              )}
+              {!task.isOrbit && (
+                <button onClick={handleConvertToOrbit} className="text-stone-300 hover:text-orange-400 transition-colors" title="Promote to Orbit">
+                  <Orbit size={14} />
                 </button>
               )}
               <button onClick={() => onEdit?.(task)} className="text-stone-300 hover:text-orange-400 transition-colors" title="Edit task">

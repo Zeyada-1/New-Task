@@ -5,6 +5,7 @@ import {
   Users, CalendarDays, CheckSquare, Flame,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -51,6 +52,7 @@ function Toggle({ enabled, onToggle, saving }) {
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
+  const { dark } = useTheme();
   const [saving, setSaving] = useState(false);
 
   if (!user) return null;
@@ -125,17 +127,21 @@ export default function Settings() {
                 key={a.key}
                 onClick={() => handleAvatarChange(a.key)}
                 disabled={saving}
-                className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl transition-all border ${
-                  isSelected
-                    ? 'border-orange-400 bg-orange-50'
-                    : 'border-stone-200 bg-white hover:border-orange-200'
-                } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl transition-all border ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                style={{
+                  borderColor: isSelected
+                    ? '#fb923c'
+                    : (dark ? '#44403c' : '#e7e5e4'),
+                  background: isSelected
+                    ? (dark ? 'rgba(249,115,22,0.16)' : '#fff7ed')
+                    : (dark ? '#292524' : '#ffffff'),
+                }}
               >
                 <div
                   className="w-8 h-8 rounded-full"
                   style={{ background: a.color }}
                 />
-                <span className={`text-xs font-semibold ${isSelected ? 'text-orange-600' : 'text-stone-500'}`}>{a.label}</span>
+                <span className={`text-xs font-semibold ${isSelected ? 'text-orange-500' : (dark ? 'text-stone-300' : 'text-stone-500')}`}>{a.label}</span>
                 {isSelected && (
                   <span className="text-[10px] text-orange-500 font-bold">Active</span>
                 )}

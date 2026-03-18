@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, Check, Plus } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { X, ChevronDown, Check, Plus, Orbit, AlertCircle, GripVertical } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import DateTimePicker from './DateTimePicker';
@@ -17,7 +17,7 @@ const TASK_COLORS = [
   '#3b82f6', '#06b6d4', '#22c55e', '#f59e0b',
 ];
 
-export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, initialTask }) {
+export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, initialTask, hideOrbitToggle = false }) {
   const { dark } = useTheme();
   const isEditing = !!initialTask;
   const [form, setForm] = useState(
@@ -29,12 +29,14 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
           category:    initialTask.category    || 'General',
           color:       initialTask.color       || null,
           dueDate:     initialTask.dueDate ? new Date(initialTask.dueDate).toISOString().slice(0, 16) : '',
+          isOrbit:     initialTask.isOrbit     || false,
         }
-      : { title: '', description: '', priority: 'MEDIUM', category: 'General', color: null, dueDate: '' }
+      : { title: '', description: '', priority: 'MEDIUM', category: 'General', color: null, dueDate: '', isOrbit: false }
   );
   const [loading, setLoading] = useState(false);
   const [subtaskInput, setSubtaskInput] = useState('');
   const [newSubtasks, setNewSubtasks] = useState([]);
+  const [showSubtaskWarning, setShowSubtaskWarning] = useState(false);
   const [existingSubtasks, setExistingSubtasks] = useState(
     isEditing ? (initialTask.subtasks || []) : []
   );
@@ -43,11 +45,10 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
   useEffect(() => {
     if (!isEditing) return;
     let alive = true;
-    api.get('/orbit')
+    api.get(`/tasks/${initialTask.id}`)
       .then(res => {
         if (!alive) return;
-        const found = res.data.find(t => t.id === initialTask.id);
-        if (found) setExistingSubtasks(found.subtasks || []);
+        if (res.data?.subtasks) setExistingSubtasks(res.data.subtasks);
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -71,29 +72,47 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
     setSubtaskInput('');
   };
 
+  const totalSubtasks = existingSubtasks.length + newSubtasks.length;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.isOrbit && totalSubtasks === 0) {
+      setShowSubtaskWarning(true);
+      return;
+    }
     setLoading(true);
     try {
       const payload = { ...form };
       if (!payload.dueDate) delete payload.dueDate;
       if (!payload.description) delete payload.description;
       if (!payload.color) delete payload.color;
+      if (!payload.isOrbit) delete payload.isOrbit;
       let taskId;
+      let taskData;
       if (isEditing) {
         const res = await api.patch(`/tasks/${initialTask.id}`, payload);
         taskId = initialTask.id;
+        taskData = res.data;
         toast.success('Task updated!');
-        onTaskUpdated?.(res.data);
       } else {
         const res = await api.post('/tasks', payload);
         taskId = res.data.id;
+        taskData = res.data;
         toast.success('Task added!');
-        onTaskAdded?.(res.data);
       }
-      // Create any queued subtasks
+      // Create any queued subtasks BEFORE notifying parent so load() sees them
       for (const sub of newSubtasks) {
         await api.post(`/orbit/${taskId}/subtasks`, { title: sub });
+      }
+      // Persist subtask order if editing and subtasks were reordered
+      if (isEditing && existingSubtasks.length > 0) {
+        const orderedIds = existingSubtasks.map(s => s.id);
+        await api.patch(`/orbit/${taskId}/subtasks/reorder`, { orderedIds }).catch(() => {});
+      }
+      if (isEditing) {
+        onTaskUpdated?.(taskData);
+      } else {
+        onTaskAdded?.(taskData);
       }
       onClose();
     } catch (err) {
@@ -109,7 +128,7 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-[120] flex items-center justify-center p-4"
         style={{ background: 'rgba(0,0,0,0.35)' }}
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
@@ -211,46 +230,111 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
               />
             </div>
 
+            {/* Also show in Orbit toggle */}
+            {!hideOrbitToggle && (
+              <div
+                onClick={() => setForm({ ...form, isOrbit: !form.isOrbit })}
+                className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                style={{
+                  borderColor: form.isOrbit ? '#f97316' : (dark ? '#44403c' : '#e5e3de'),
+                  background: form.isOrbit
+                    ? (dark ? 'rgba(249,115,22,0.08)' : 'rgba(249,115,22,0.04)')
+                    : 'transparent',
+                }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: form.isOrbit
+                      ? 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)'
+                      : (dark ? '#292524' : '#f5f5f4'),
+                    transition: 'background 0.2s',
+                  }}>
+                  <Orbit size={14}
+                    style={{ color: form.isOrbit ? 'white' : '#a8a29e', transition: 'color 0.2s' }} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: dark ? '#e7e5e4' : '#292524' }}>
+                    Also show in Orbit
+                  </p>
+                  <p className="text-[11px]" style={{ color: '#a8a29e' }}>
+                    Mirror this task as an orbit goal
+                  </p>
+                </div>
+                <div className="w-9 h-5 rounded-full relative flex-shrink-0 transition-all"
+                  style={{
+                    background: form.isOrbit ? '#f97316' : (dark ? '#44403c' : '#d6d3d1'),
+                  }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all"
+                    style={{ left: form.isOrbit ? 18 : 2 }} />
+                </div>
+              </div>
+            )}
+
             {/* Subtasks */}
             <div>
-              <label className="text-xs text-stone-500 mb-2 block">Subtasks (optional)</label>
+              <label className="text-xs text-stone-500 mb-2 block font-medium">
+                {form.isOrbit ? 'Orbiting steps' : 'Subtasks'}{' '}
+                {form.isOrbit
+                  ? <span className="text-orange-500">*</span>
+                  : <span className="font-normal">(optional)</span>}
+              </label>
+              {form.isOrbit && totalSubtasks === 0 && (
+                <p className="text-[11px] mb-2" style={{ color: '#f97316' }}>
+                  Orbits require at least one step to orbit around the goal
+                </p>
+              )}
               <div className="space-y-2">
-                {/* Existing subtasks (edit mode) */}
-                {existingSubtasks.map((sub) => (
-                  <div key={sub.id} className="flex items-center gap-2">
-                    <span className={`flex-1 text-sm px-3 py-1.5 rounded-xl border ${sub.completed ? 'line-through text-stone-400' : 'text-neutral-700'}`}
-                      style={dark ? { background: '#292524', borderColor: '#44403c' } : { background: '#fafaf9', borderColor: '#e5e3de' }}>
-                      {sub.title}
-                    </span>
-                    <button type="button"
-                      onClick={() => deleteExistingSubtask(sub.id)}
-                      className="text-stone-400 hover:text-red-500 transition-colors flex-shrink-0"
-                      title="Remove subtask">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                {/* New subtasks queued to add */}
-                {newSubtasks.map((sub, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="flex-1 text-sm text-neutral-700 px-3 py-1.5 rounded-xl border"
-                      style={dark ? { background: '#292524', borderColor: '#44403c' } : { background: '#fafaf9', borderColor: '#e5e3de' }}>
-                      {sub}
-                    </span>
-                    <button type="button"
-                      onClick={() => setNewSubtasks(prev => prev.filter((_, j) => j !== i))}
-                      className="text-stone-400 hover:text-red-500 transition-colors flex-shrink-0">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                {/* Existing subtasks (edit mode) — draggable */}
+                {existingSubtasks.length > 0 && (
+                  <Reorder.Group axis="y" values={existingSubtasks} onReorder={setExistingSubtasks} as="div" className="space-y-2">
+                    {existingSubtasks.map((sub) => (
+                      <Reorder.Item key={sub.id} value={sub} as="div" className="flex items-center gap-2"
+                        whileDrag={{ scale: 1.02, boxShadow: '0 4px 16px rgba(0,0,0,0.1)', borderRadius: 12, background: dark ? '#292524' : '#fafaf9', zIndex: 10 }}>
+                        <div className="cursor-grab active:cursor-grabbing text-stone-400 hover:text-stone-600 flex-shrink-0 touch-none">
+                          <GripVertical size={14} />
+                        </div>
+                        <span className={`flex-1 text-sm px-3 py-1.5 rounded-xl border ${sub.completed ? 'line-through text-stone-400' : 'text-neutral-700'}`}
+                          style={dark ? { background: '#292524', borderColor: '#44403c' } : { background: '#fafaf9', borderColor: '#e5e3de' }}>
+                          {sub.title}
+                        </span>
+                        <button type="button"
+                          onClick={() => deleteExistingSubtask(sub.id)}
+                          className="text-stone-400 hover:text-red-500 transition-colors flex-shrink-0"
+                          title="Remove subtask">
+                          <X size={14} />
+                        </button>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
+                )}
+                {/* New subtasks queued to add — draggable */}
+                {newSubtasks.length > 0 && (
+                  <Reorder.Group axis="y" values={newSubtasks} onReorder={setNewSubtasks} as="div" className="space-y-2">
+                    {newSubtasks.map((sub, i) => (
+                      <Reorder.Item key={sub} value={sub} as="div" className="flex items-center gap-2"
+                        whileDrag={{ scale: 1.02, boxShadow: '0 4px 16px rgba(0,0,0,0.1)', borderRadius: 12, background: dark ? '#292524' : '#fafaf9', zIndex: 10 }}>
+                        <div className="cursor-grab active:cursor-grabbing text-stone-400 hover:text-stone-600 flex-shrink-0 touch-none">
+                          <GripVertical size={14} />
+                        </div>
+                        <span className="flex-1 text-sm text-neutral-700 px-3 py-1.5 rounded-xl border"
+                          style={dark ? { background: '#292524', borderColor: '#44403c' } : { background: '#fafaf9', borderColor: '#e5e3de' }}>
+                          {sub}
+                        </span>
+                        <button type="button"
+                          onClick={() => setNewSubtasks(prev => prev.filter((_, j) => j !== i))}
+                          className="text-stone-400 hover:text-red-500 transition-colors flex-shrink-0">
+                          <X size={14} />
+                        </button>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
+                )}
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={subtaskInput}
-                    onChange={e => setSubtaskInput(e.target.value)}
+                    onChange={e => { setSubtaskInput(e.target.value); setShowSubtaskWarning(false); }}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } }}
-                    placeholder="Add a subtask..."
+                    placeholder={form.isOrbit ? 'Add an orbiting step...' : 'Add a subtask...'}
                     className="input-field flex-1"
                     style={{ fontSize: 13, padding: '7px 10px' }}
                   />
@@ -260,6 +344,21 @@ export default function AddTaskModal({ onClose, onTaskAdded, onTaskUpdated, init
                     <Plus size={13} /> Add
                   </button>
                 </div>
+
+                {/* Warning when trying to submit orbit without subtasks */}
+                <AnimatePresence>
+                  {showSubtaskWarning && form.isOrbit && totalSubtasks === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="flex items-center gap-1.5 text-xs"
+                      style={{ color: '#ef4444' }}>
+                      <AlertCircle size={12} />
+                      Add at least one orbiting step to create an orbit
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 

@@ -90,8 +90,43 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 
 // ── Shared task pill ──────────────────────────────────────────────────────────
 
-function TaskPill({ task, onComplete, showTime = true }) {
+function TaskPill({ task, onComplete, showTime = true, compact = false }) {
   const color = task.color || PRIO[task.priority] || PRIO.MEDIUM;
+
+  if (compact) {
+    return (
+      <div
+        className="group rounded-lg px-1.5 py-1 transition-all cursor-default"
+        style={{ background: `${color}18`, borderLeft: `3px solid ${task.completed ? '#475569' : color}` }}
+        title={task.title}
+      >
+        <div className="flex items-start gap-1">
+          <button
+            onClick={() => !task.completed && onComplete(task)}
+            className="flex-shrink-0 mt-0.5"
+            title={task.completed ? 'Completed' : 'Mark complete'}
+          >
+            {task.completed
+              ? <CheckCircle2 size={10} className="text-emerald-500" />
+              : <Circle size={10} className="text-stone-400 group-hover:text-orange-500 transition-colors" />}
+          </button>
+          <span
+            className={`text-[10px] leading-tight font-semibold break-words ${task.completed ? 'line-through text-stone-400' : 'text-neutral-900'}`}
+            style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+          >
+            {task.title}
+          </span>
+        </div>
+        {showTime && (
+          <div className="text-[9px] text-stone-400 flex items-center gap-0.5 mt-0.5 pl-3.5">
+            <Clock size={8} />
+            {fmtTime(task.dueDate)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-all group"
@@ -202,7 +237,7 @@ function AgendaView({ tasks, tasksByDate, currentDate, onComplete }) {
 
 // ── Week view ─────────────────────────────────────────────────────────────────
 
-function WeekView({ tasksByDate, currentDate, onComplete }) {
+function WeekView({ tasksByDate, currentDate, onComplete, dark }) {
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
   return (
@@ -212,13 +247,13 @@ function WeekView({ tasksByDate, currentDate, onComplete }) {
         {weekDays.map((d, i) => (
           <div
             key={i}
-            className={`p-3 text-center border-r border-stone-100 last:border-r-0
-              ${isToday(d) ? 'bg-orange-50' : ''}`}
+            className={`p-3 text-center border-r border-stone-100 last:border-r-0`}
+            style={isToday(d) ? { background: dark ? 'rgba(249,115,22,0.12)' : '#fff7ed' } : {}}
           >
             <div className="text-xs text-stone-400 font-semibold uppercase">{DAY_NAMES[i]}</div>
             <div
               className={`text-xl font-bold mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full
-                ${isToday(d) ? 'bg-orange-500 text-white' : 'text-neutral-900'}`}
+                ${isToday(d) ? 'bg-orange-500 text-white' : dark ? 'text-stone-200' : 'text-neutral-900'}`}
             >
               {d.getDate()}
             </div>
@@ -237,15 +272,15 @@ function WeekView({ tasksByDate, currentDate, onComplete }) {
           return (
             <div
               key={i}
-              className={`min-h-36 p-2 border-r border-stone-100 last:border-r-0
-                ${isToday(d) ? 'bg-orange-50/50' : ''}`}
+              className={`min-h-36 p-2 border-r border-stone-100 last:border-r-0`}
+              style={isToday(d) ? { background: dark ? 'rgba(249,115,22,0.07)' : 'rgba(255,247,237,0.5)' } : {}}
             >
               {dayTasks.length === 0 ? (
                 <div className="text-xs text-stone-200 text-center pt-4">—</div>
               ) : (
                 <div className="space-y-1">
                   {dayTasks.map((t) => (
-                    <TaskPill key={t.id} task={t} onComplete={onComplete} />
+                    <TaskPill key={t.id} task={t} onComplete={onComplete} compact />
                   ))}
                 </div>
               )}
@@ -620,6 +655,7 @@ export default function Calendar() {
               tasksByDate={tasksByDate}
               currentDate={currentDate}
               onComplete={handleComplete}
+              dark={dark}
             />
           )}
           {view === 'month' && (

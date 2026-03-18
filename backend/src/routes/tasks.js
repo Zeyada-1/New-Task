@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
 
     const tasks = await prisma.task.findMany({
       where,
-      include: { subtasks: { orderBy: { createdAt: 'asc' } } },
+      include: { subtasks: { orderBy: { order: 'asc' } } },
       orderBy: { [sort]: order },
     });
     res.json(tasks);
@@ -32,7 +32,7 @@ router.get('/:id', async (req, res) => {
   try {
     const task = await prisma.task.findFirst({
       where: { id: req.params.id, userId: req.userId },
-      include: { subtasks: { orderBy: { createdAt: 'asc' } } },
+      include: { subtasks: { orderBy: { order: 'asc' } } },
     });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
@@ -51,12 +51,13 @@ router.post(
     body('category').optional().trim().isLength({ max: 50 }),
     body('color').optional().isString().isLength({ max: 20 }),
     body('dueDate').optional().custom(v => !isNaN(Date.parse(v))).withMessage('Invalid date'),
+    body('isOrbit').optional().isBoolean(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { title, description, priority = 'MEDIUM', category = 'General', color, dueDate } = req.body;
+    const { title, description, priority = 'MEDIUM', category = 'General', color, dueDate, isOrbit } = req.body;
 
     try {
       const task = await prisma.task.create({
@@ -67,9 +68,10 @@ router.post(
           category,
           color: color || null,
           dueDate: dueDate ? new Date(dueDate) : null,
+          isOrbit: isOrbit === true,
           userId: req.userId,
         },
-        include: { subtasks: { orderBy: { createdAt: 'asc' } } },
+        include: { subtasks: { orderBy: { order: 'asc' } } },
       });
       res.status(201).json(task);
     } catch (err) {
@@ -105,11 +107,12 @@ router.patch(
       if (category !== undefined) updateData.category = category;
       if (color !== undefined) updateData.color = color || null;
       if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+      if (req.body.isOrbit !== undefined) updateData.isOrbit = req.body.isOrbit === true;
 
       const updated = await prisma.task.update({
         where: { id: req.params.id },
         data: updateData,
-        include: { subtasks: { orderBy: { createdAt: 'asc' } } },
+        include: { subtasks: { orderBy: { order: 'asc' } } },
       });
       res.json(updated);
     } catch (err) {
@@ -119,16 +122,23 @@ router.patch(
   }
 );
 
-// PATCH /api/tasks/:id/complete — mark task as complete
+// PATCH /api/tasks/:id/complete — mark task as complete (cascades to subtasks)
 router.patch('/:id/complete', async (req, res) => {
   try {
     const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: req.userId } });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     if (task.completed) return res.status(400).json({ error: 'Task already completed' });
 
+    const now = new Date();
     const completedTask = await prisma.task.update({
       where: { id: req.params.id },
-      data: { completed: true, completedAt: new Date() },
+      data: { completed: true, completedAt: now },
+    });
+
+    // Cascade: complete all incomplete subtasks
+    await prisma.task.updateMany({
+      where: { parentId: req.params.id, completed: false },
+      data: { completed: true, completedAt: now },
     });
 
     res.json({ task: completedTask });
@@ -138,7 +148,7 @@ router.patch('/:id/complete', async (req, res) => {
   }
 });
 
-// PATCH /api/tasks/:id/uncomplete — undo completion
+// PATCH /api/tasks/:id/uncomplete — undo completion (cascades to subtasks)
 router.patch('/:id/uncomplete', async (req, res) => {
   try {
     const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: req.userId } });
@@ -146,6 +156,12 @@ router.patch('/:id/uncomplete', async (req, res) => {
     if (!task.completed) return res.status(400).json({ error: 'Task is not completed' });
 
     await prisma.task.update({ where: { id: req.params.id }, data: { completed: false, completedAt: null } });
+
+    // Cascade: uncomplete all completed subtasks
+    await prisma.task.updateMany({
+      where: { parentId: req.params.id, completed: true },
+      data: { completed: false, completedAt: null },
+    });
 
     res.json({ message: 'Task uncompleted' });
   } catch (err) {
