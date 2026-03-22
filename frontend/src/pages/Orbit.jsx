@@ -483,12 +483,20 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
   const [showSubtaskMenu, setShowSubtaskMenu] = useState(true);
   const [sphereSkin, setSphereSkin]       = useState(() => localStorage.getItem('orbit-sphere-skin') || 'moon');
   const [togglingIds, setTogglingIds]     = useState(() => new Set());
-  const [menuPos, setMenuPos]             = useState({ x: 20, y: 74 });
+  const [menuPos, setMenuPos]             = useState({ x: 12, y: 56 });
   const menuDragRef                       = useRef(null);
   const menuDragStart                     = useRef(null);
   const [goneIds, setGoneIds]             = useState(() => new Set(
     (node.subtasks || []).filter(s => s.completed).map(s => s.id)
   ));
+
+  // Force dark mode on html so modals (AddTaskModal etc.) render dark inside orbit view
+  useEffect(() => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    if (!wasDark) html.classList.add('dark');
+    return () => { if (!wasDark) html.classList.remove('dark'); };
+  }, []);
 
   const rawX = useMotionValue(0);
   const rawY = useMotionValue(0);
@@ -842,7 +850,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
       </svg>
 
       {/* Close / Back */}
-      <button onClick={onClose} style={{ position: 'absolute', top: 24, left: 24, zIndex: 60,
+      <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, zIndex: 60,
         display: 'flex', alignItems: 'center', gap: 6, background: T.btnBg,
         border: `1px solid ${T.btnBorder}`, borderRadius: 10, padding: '6px 14px',
         fontSize: 13, fontWeight: 600, color: T.btnColor, cursor: 'pointer',
@@ -858,13 +866,13 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
         setSphereSkin(next);
         localStorage.setItem('orbit-sphere-skin', next);
       }}
-        style={{ position: 'absolute', top: 24, right: 24, zIndex: 60,
+        style={{ position: 'absolute', top: 16, right: 16, zIndex: 60,
           display: 'flex', alignItems: 'center', gap: 5, background: T.btnBg,
           border: `1px solid ${T.btnBorder}`, borderRadius: 10, padding: '6px 12px',
           fontSize: 12, fontWeight: 600, color: T.btnColor, cursor: 'pointer',
           boxShadow: '0 1px 4px rgba(0,0,0,0.3)', transition: 'background 0.4s, color 0.4s, border-color 0.4s' }}>
         {sphereSkin === 'moon' ? <Moon size={13} /> : <Sun size={13} />}
-        {sphereSkin === 'moon' ? 'Moon' : 'Classic'}
+        <span className="hidden sm:inline">{sphereSkin === 'moon' ? 'Moon' : 'Classic'}</span>
       </button>
 
       {/* Subtask menu toggle — left side, near Close button */}
@@ -872,8 +880,8 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
         onClick={() => setShowSubtaskMenu(v => !v)}
         style={{
           position: 'absolute',
-          top: 24,
-          left: 120,
+          top: 16,
+          left: 110,
           zIndex: 60,
           display: 'flex',
           alignItems: 'center',
@@ -924,11 +932,11 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
           display: block;
         }
       `}</style>
-      <div className="zoom-slider-track" style={{
+      <div className="zoom-slider-track hidden sm:flex" style={{
         position: 'absolute', right: 20, top: '50%',
         transform: 'translateY(-50%)',
         zIndex: 60,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        flexDirection: 'column', alignItems: 'center', gap: 10,
         background: T.panelBg,
         border: `1px solid ${T.panelBorder}`,
         borderRadius: 20, padding: '16px 12px',
@@ -1014,7 +1022,7 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
 
       <button className="orbit-edit-btn" onClick={() => setEditingCenter(node)}
         style={{
-          position: 'absolute', right: 20, bottom: 90,
+          position: 'absolute', right: 16, bottom: 90,
           zIndex: 59,
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
           background: 'rgba(28, 22, 17, 0.92)',
@@ -1248,8 +1256,8 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
       </div>
 
       {/* Status + add subtask  always at bottom of overlay */}
-      <div style={{ position: 'absolute', bottom: 28, left: '50%',
-        transform: 'translateX(-50%)', zIndex: 60,
+      <div style={{ position: 'absolute', bottom: 20, left: '50%',
+        transform: 'translateX(-50%)', zIndex: 60, width: 'min(340px, calc(100vw - 32px))',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <p style={{ fontSize: 12, color: T.mutedText }}>
           {total === 0 ? 'No orbiting tasks yet'
@@ -1270,16 +1278,16 @@ function OrbitView({ node, onClose, onUpdate, cardRect = null, depth = 0 }) {
           ) : (
             <motion.form key="add-form" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }} onSubmit={handleAddSubtask}
-              style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
               <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
                 placeholder="Task name" className="input-field"
-                style={{ fontSize: 13, padding: '6px 10px', width: 180 }} />
+                style={{ fontSize: 13, padding: '6px 10px', flex: 1, minWidth: 0 }} />
               <button type="submit" disabled={adding} className="btn-primary"
-                style={{ fontSize: 12, padding: '6px 12px' }}>
+                style={{ fontSize: 12, padding: '6px 12px', flexShrink: 0 }}>
                 {adding ? '…' : 'Add'}
               </button>
               <button type="button" onClick={() => { setShowAddForm(false); setNewTitle(''); }}
-                style={{ background: 'none', border: 'none', color: '#a8a29e', cursor: 'pointer' }}>
+                style={{ background: 'none', border: 'none', color: '#a8a29e', cursor: 'pointer', flexShrink: 0 }}>
                 <X size={14} />
               </button>
             </motion.form>
@@ -1689,7 +1697,7 @@ export default function Orbit() {
       )}
 
       {orbits.length > 0 && (
-        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))' }}>
           <AnimatePresence>
             {orbits.map(orbit => (
               <OrbitCard key={orbit.id} orbit={orbit}

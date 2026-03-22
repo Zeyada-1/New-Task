@@ -103,9 +103,9 @@ export default function Tasks() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-3">
           {/* Status filter */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {FILTERS.map((f) => (
               <button
                 key={f}
@@ -120,7 +120,7 @@ export default function Tasks() {
           </div>
 
           {/* Priority filter */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {PRIORITIES.map((p) => (
               <button
                 key={p}
@@ -135,7 +135,7 @@ export default function Tasks() {
           </div>
 
           {/* Sort */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
             <span className="flex items-center gap-1 text-xs text-stone-500 whitespace-nowrap">
               <ArrowUpDown size={13} />
               Sort
@@ -143,7 +143,7 @@ export default function Tasks() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="input-field py-1.5 px-2 text-sm min-w-[180px]"
+              className="input-field py-1.5 px-2 text-sm flex-1 sm:flex-none sm:min-w-[180px]"
               style={{
                 background: dark ? '#1c1917' : '#ffffff',
                 color: dark ? '#e7e5e4' : '#292524',

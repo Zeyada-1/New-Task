@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LayoutDashboard, CheckSquare, BarChart2, CalendarDays, Users, Settings, LogOut, Atom, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, BarChart2, CalendarDays, Users, Settings, LogOut, Atom, Moon, Sun, Menu, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 
@@ -19,8 +19,13 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { dark, setDark } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile menu on navigation
+  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   const handleResend = async () => {
     if (resending || resent) return;
@@ -54,8 +59,8 @@ export default function Navbar() {
           <span className={`font-bold text-lg ${dark ? 'text-stone-100' : 'text-neutral-900'}`}>Orbit</span>
         </div>
 
-        {/* Nav Links */}
-        <div className="flex items-center gap-1">
+        {/* Desktop Nav Links */}
+        <div className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -72,19 +77,18 @@ export default function Navbar() {
               }
             >
               <Icon size={15} />
-              <span className="hidden sm:inline">{label}</span>
+              <span>{label}</span>
             </NavLink>
           ))}
         </div>
 
-        {/* User + Logout */}
-        <div className="flex items-center gap-3">
+        {/* Desktop User + Logout */}
+        <div className="hidden md:flex items-center gap-3">
           {user && (
-            <div className="hidden sm:flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-sm">
               <span className={`font-medium ${dark ? 'text-stone-300' : 'text-stone-700'}`}>{user.username}</span>
             </div>
           )}
-          {/* Dark/Light toggle */}
           <button
             onClick={() => setDark(d => !d)}
             title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -108,10 +112,81 @@ export default function Navbar() {
           </NavLink>
           <button onClick={handleLogout} aria-label="Log out" className="flex items-center gap-1.5 text-stone-400 hover:text-red-500 transition-colors text-sm">
             <LogOut size={15} />
-            <span className="hidden sm:inline">Logout</span>
+            <span>Logout</span>
+          </button>
+        </div>
+
+        {/* Mobile: theme toggle + hamburger */}
+        <div className="flex md:hidden items-center gap-2">
+          <button
+            onClick={() => setDark(d => !d)}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className={`p-2 rounded-lg transition-colors ${
+              dark ? 'text-stone-400 hover:text-yellow-300' : 'text-stone-400 hover:text-neutral-900'
+            }`}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            className={`p-2 rounded-lg transition-colors ${
+              dark ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
+
+      {/* Mobile slide-down menu */}
+      {mobileOpen && (
+        <div className={`md:hidden mt-3 pb-3 border-t pt-3 space-y-1 ${
+          dark ? 'border-[#292524]' : 'border-stone-200'
+        }`}>
+          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-orange-50 text-orange-600'
+                    : dark
+                      ? 'text-stone-400 hover:text-stone-100 hover:bg-stone-800'
+                      : 'text-stone-500 hover:text-neutral-900 hover:bg-stone-100'
+                }`
+              }
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+          <div className={`border-t mt-2 pt-2 space-y-1 ${dark ? 'border-[#292524]' : 'border-stone-200'}`}>
+            {user && (
+              <div className={`px-3 py-2 text-sm font-medium ${dark ? 'text-stone-300' : 'text-stone-700'}`}>
+                {user.username}
+              </div>
+            )}
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive ? 'bg-orange-50 text-orange-600' : dark ? 'text-stone-400 hover:text-stone-100 hover:bg-stone-800' : 'text-stone-500 hover:text-neutral-900 hover:bg-stone-100'
+                }`
+              }
+            >
+              <Settings size={18} />
+              <span>Settings</span>
+            </NavLink>
+            <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-400 hover:text-red-500 transition-colors w-full">
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      )}
     </nav>
     {user && !user.emailVerified && (
       <div className="px-4 py-2 text-center flex items-center justify-center gap-3 flex-wrap text-sm bg-amber-50 border-b border-amber-200">

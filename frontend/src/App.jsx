@@ -76,8 +76,8 @@ function ThemedToaster() {
   const { dark } = useTheme();
   return (
     <Toaster
-      position="bottom-right"
-      containerStyle={{ bottom: 88 }}
+      position="bottom-center"
+      containerStyle={{ bottom: 24 }}
       toastOptions={{
         style: dark
           ? { background: '#292524', color: '#f5f5f4', border: '1px solid #44403c', borderRadius: '0.875rem', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }

@@ -324,7 +324,7 @@ function MonthView({ tasksByDate, currentDate, onComplete }) {
               <div
                 key={i}
                 onClick={() => setSelected(sel ? null : d)}
-                className={`min-h-[90px] p-1.5 border-r border-b border-stone-100 cursor-pointer transition-colors
+                className={`min-h-[60px] sm:min-h-[90px] p-1 sm:p-1.5 border-r border-b border-stone-100 cursor-pointer transition-colors
                   ${inMonth ? '' : 'opacity-25'}
                   ${isToday(d) ? 'bg-orange-50' : 'hover:bg-stone-50'}
                   ${sel ? 'bg-orange-50 ring-1 ring-inset ring-orange-300/50' : ''}`}

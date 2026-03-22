@@ -132,6 +132,12 @@
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 }
 
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  body { -webkit-text-size-adjust: 100%; }
+  .max-w-4xl, .max-w-5xl, .max-w-7xl { padding-left: 12px; padding-right: 12px; }
+}
+
 @keyframes undo-shrink {
   from { width: 100%; }
   to   { width: 0%; }
